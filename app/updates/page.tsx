@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
 
 type Section = { title: string; bullets: string[] };
 type Update = {
@@ -15,6 +15,10 @@ type Update = {
 const DAY_EMOJIS = ["🟣", "🟡", "🔵", "🟢", "🟠", "🔴", "🔴"];
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
+function toLocalDateStr(date: Date) {
+  return date.toLocaleDateString("en-CA"); // YYYY-MM-DD in local time
+}
+
 function formatTime(iso: string) {
   const d = new Date(iso);
   return d.toLocaleString("en-US", {
@@ -24,16 +28,17 @@ function formatTime(iso: string) {
 }
 
 export default function UpdatesPage() {
-  const [updates, setUpdates] = useState<Update[]>([]);
+  const [allUpdates, setAllUpdates] = useState<Update[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string>(toLocalDateStr(new Date()));
 
   async function fetchUpdates() {
     setLoading(true);
     try {
       const res = await fetch("/api/updates");
       const data = await res.json();
-      setUpdates(Array.isArray(data) ? data : []);
+      setAllUpdates(Array.isArray(data) ? data : []);
     } catch {
       // silently fail
     }
@@ -47,12 +52,26 @@ export default function UpdatesPage() {
     return () => clearInterval(interval);
   }, []);
 
+  const filtered = allUpdates.filter((u) => toLocalDateStr(new Date(u.timestamp)) === selectedDate);
+
+  function shiftDay(delta: number) {
+    const d = new Date(selectedDate + "T12:00:00");
+    d.setDate(d.getDate() + delta);
+    setSelectedDate(toLocalDateStr(d));
+  }
+
+  const isToday = selectedDate === toLocalDateStr(new Date());
+
+  const displayDate = new Date(selectedDate + "T12:00:00").toLocaleDateString("en-US", {
+    weekday: "long", month: "long", day: "numeric", year: "numeric",
+  });
+
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Updates</h1>
-          <p className="text-[#888] text-sm mt-1">Daily briefings and alerts</p>
+          <p className="text-[#888] text-sm mt-1">Daily TCG briefings for PrimeBind</p>
         </div>
         <button
           onClick={fetchUpdates}
@@ -63,15 +82,48 @@ export default function UpdatesPage() {
         </button>
       </div>
 
-      {loading && updates.length === 0 ? (
+      {/* Date navigator */}
+      <div className="flex items-center gap-3">
+        <button
+          onClick={() => shiftDay(-1)}
+          className="p-1.5 rounded-md text-[#555] hover:text-white hover:bg-[#1a1a1a] transition-colors"
+        >
+          <ChevronLeft size={16} />
+        </button>
+        <input
+          type="date"
+          value={selectedDate}
+          max={toLocalDateStr(new Date())}
+          onChange={(e) => e.target.value && setSelectedDate(e.target.value)}
+          className="bg-[#111] border border-[#222] rounded-md px-3 py-1.5 text-sm text-white [color-scheme:dark] cursor-pointer"
+        />
+        <button
+          onClick={() => shiftDay(1)}
+          disabled={isToday}
+          className="p-1.5 rounded-md text-[#555] hover:text-white hover:bg-[#1a1a1a] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+        >
+          <ChevronRight size={16} />
+        </button>
+        <span className="text-[#555] text-sm">{displayDate}</span>
+        {!isToday && (
+          <button
+            onClick={() => setSelectedDate(toLocalDateStr(new Date()))}
+            className="ml-auto text-xs text-[#555] hover:text-white transition-colors"
+          >
+            Today
+          </button>
+        )}
+      </div>
+
+      {loading && allUpdates.length === 0 ? (
         <div className="text-center py-20 text-[#555] text-sm">Loading...</div>
-      ) : updates.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <div className="bg-[#111] border border-[#222] rounded-xl text-center py-20 text-[#555] text-sm">
-          No updates yet — briefings will appear here daily at 6 PM EDT.
+          No briefing for this date.
         </div>
       ) : (
         <div className="space-y-5">
-          {updates.map((update) => {
+          {filtered.map((update) => {
             const d = new Date(update.timestamp);
             const dayIdx = d.getDay();
             return (

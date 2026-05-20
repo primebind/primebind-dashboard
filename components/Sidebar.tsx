@@ -26,7 +26,7 @@ const groups: NavGroup[] = [
     items: [
       { href: "/financials", label: "Financials", icon: DollarSign },
       { href: "/purchase-orders", label: "Purchase Orders", icon: ClipboardList },
-      { href: "/inbound", label: "Inbound", icon: Inbox },
+      { href: "/inbound", label: "Inbounds", icon: Inbox },
     ],
   },
   {

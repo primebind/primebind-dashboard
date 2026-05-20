@@ -227,7 +227,7 @@ export default function InboundPage() {
     <div className="max-w-5xl mx-auto space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Inbound</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Inbounds</h1>
           <p className="text-[#888] text-sm mt-1">{activeCount} active · {inTransitCount} in transit</p>
         </div>
         <button onClick={() => setShowNew(!showNew)} className="flex items-center gap-2 bg-white text-black text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#e0e0e0] transition-colors">
