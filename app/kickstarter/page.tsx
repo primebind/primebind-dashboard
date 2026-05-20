@@ -6,6 +6,8 @@ import { Plus, Trash2, Pencil, Check, X } from "lucide-react";
 const DEFAULT_KS_FEE = 0.12;
 const DEFAULT_BLENDED_LOW = 80;
 const DEFAULT_BLENDED_HIGH = 100;
+const DEFAULT_KS_GOAL = 25000;
+const DEFAULT_BREAKEVEN = 20000;
 
 type TierItem = { skuId: string; qty: number };
 type Tier = { id: string; name: string; price: number; contents: TierItem[]; slots: number; note: string };
@@ -297,11 +299,17 @@ export default function Kickstarter() {
   const [ksFee, setKsFee] = useState(DEFAULT_KS_FEE);
   const [blendedLow, setBlendedLow] = useState(DEFAULT_BLENDED_LOW);
   const [blendedHigh, setBlendedHigh] = useState(DEFAULT_BLENDED_HIGH);
+  const [ksGoal, setKsGoal] = useState(DEFAULT_KS_GOAL);
+  const [breakeven, setBreakeven] = useState(DEFAULT_BREAKEVEN);
   const [editingFee, setEditingFee] = useState(false);
   const [editingBlended, setEditingBlended] = useState(false);
+  const [editingGoal, setEditingGoal] = useState(false);
+  const [editingBreakeven, setEditingBreakeven] = useState(false);
   const [feeDraft, setFeeDraft] = useState("");
   const [blendedLowDraft, setBlendedLowDraft] = useState("");
   const [blendedHighDraft, setBlendedHighDraft] = useState("");
+  const [goalDraft, setGoalDraft] = useState("");
+  const [breakevenDraft, setBreakevenDraft] = useState("");
 
   useEffect(() => {
     const rawSkus = localStorage.getItem("pb_skus");
@@ -315,6 +323,11 @@ export default function Kickstarter() {
 
     const blended = localStorage.getItem("pb_ks_blended");
     if (blended) { const b = JSON.parse(blended); setBlendedLow(b.low); setBlendedHigh(b.high); }
+
+    const goal = localStorage.getItem("pb_ks_goal");
+    if (goal) setKsGoal(parseInt(goal));
+    const be = localStorage.getItem("pb_ks_breakeven");
+    if (be) setBreakeven(parseInt(be));
 
     const t = localStorage.getItem("pb_ks_tiers");
     if (t) {
@@ -372,15 +385,47 @@ export default function Kickstarter() {
       </div>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        {[
-          { label: "KS Goal", value: "$20,000" },
-          { label: "Break-even", value: "$18,300" },
-        ].map((s) => (
-          <div key={s.label} className="bg-[#111] border border-[#222] rounded-xl p-5">
-            <p className="text-[#888] text-xs uppercase tracking-wider mb-2">{s.label}</p>
-            <p className="text-2xl font-bold text-white">{s.value}</p>
-          </div>
-        ))}
+        {/* KS Goal — editable */}
+        <div className="bg-[#111] border border-[#222] rounded-xl p-5">
+          <p className="text-[#888] text-xs uppercase tracking-wider mb-2">KS Goal</p>
+          {editingGoal ? (
+            <div className="flex items-center gap-1">
+              <span className="text-white text-sm">$</span>
+              <input autoFocus type="number" className="input w-24 text-2xl font-bold" value={goalDraft}
+                onChange={(e) => setGoalDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") { const v = parseInt(goalDraft); if (!isNaN(v)) { setKsGoal(v); localStorage.setItem("pb_ks_goal", String(v)); } setEditingGoal(false); }
+                  if (e.key === "Escape") setEditingGoal(false);
+                }} />
+              <button onClick={() => { const v = parseInt(goalDraft); if (!isNaN(v)) { setKsGoal(v); localStorage.setItem("pb_ks_goal", String(v)); } setEditingGoal(false); }} className="text-green-400 hover:text-green-300 ml-1"><Check size={13} /></button>
+            </div>
+          ) : (
+            <button onClick={() => { setGoalDraft(String(ksGoal)); setEditingGoal(true); }} className="text-2xl font-bold text-white hover:text-[#ccc] transition-colors text-left">
+              ${ksGoal.toLocaleString()}
+            </button>
+          )}
+        </div>
+
+        {/* Break-even — editable */}
+        <div className="bg-[#111] border border-[#222] rounded-xl p-5">
+          <p className="text-[#888] text-xs uppercase tracking-wider mb-2">Break-even</p>
+          {editingBreakeven ? (
+            <div className="flex items-center gap-1">
+              <span className="text-white text-sm">$</span>
+              <input autoFocus type="number" className="input w-24 text-2xl font-bold" value={breakevenDraft}
+                onChange={(e) => setBreakevenDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") { const v = parseInt(breakevenDraft); if (!isNaN(v)) { setBreakeven(v); localStorage.setItem("pb_ks_breakeven", String(v)); } setEditingBreakeven(false); }
+                  if (e.key === "Escape") setEditingBreakeven(false);
+                }} />
+              <button onClick={() => { const v = parseInt(breakevenDraft); if (!isNaN(v)) { setBreakeven(v); localStorage.setItem("pb_ks_breakeven", String(v)); } setEditingBreakeven(false); }} className="text-green-400 hover:text-green-300 ml-1"><Check size={13} /></button>
+            </div>
+          ) : (
+            <button onClick={() => { setBreakevenDraft(String(breakeven)); setEditingBreakeven(true); }} className="text-2xl font-bold text-white hover:text-[#ccc] transition-colors text-left">
+              ${breakeven.toLocaleString()}
+            </button>
+          )}
+        </div>
 
         {/* Blended Avg Pledge — editable */}
         <div className="bg-[#111] border border-[#222] rounded-xl p-5">
