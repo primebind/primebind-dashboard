@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { LayoutDashboard, Users, BarChart2, Package, DollarSign, Rocket, ClipboardList, Inbox, Bell, ChevronDown, CloudUpload, CloudDownload } from "lucide-react";
 
 const API_KEY = "ac7e82da2699fbf209b03fe0fd92059bc3ac3a7a";
@@ -67,6 +67,7 @@ export default function Sidebar() {
   const [open, setOpen] = useState<Record<string, boolean>>(initialOpen);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
   const [syncMsg, setSyncMsg] = useState("");
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     setOpen((prev) => {
@@ -77,6 +78,31 @@ export default function Sidebar() {
       return next;
     });
   }, [pathname]);
+
+  useEffect(() => {
+    const original = localStorage.setItem.bind(localStorage);
+    localStorage.setItem = (key: string, value: string) => {
+      original(key, value);
+      if (!key.startsWith("pb_")) return;
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(async () => {
+        const data: Record<string, string> = {};
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i)!;
+          if (k.startsWith("pb_")) data[k] = localStorage.getItem(k)!;
+        }
+        try {
+          const res = await fetch("/api/sync", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${API_KEY}` },
+            body: JSON.stringify(data),
+          });
+          if (res.ok) { setSyncStatus("ok"); setSyncMsg("Synced"); setTimeout(() => { setSyncStatus("idle"); setSyncMsg(""); }, 2000); }
+        } catch { /* silent fail */ }
+      }, 3000);
+    };
+    return () => { localStorage.setItem = original; };
+  }, []);
 
   const flash = (status: SyncStatus, msg: string) => {
     setSyncStatus(status);
