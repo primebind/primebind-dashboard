@@ -161,7 +161,7 @@ export default function Overview() {
       <div className="bg-[#111] border border-[#222] rounded-xl p-6">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-[#888]">Company</h2>
-          <a href="https://search.sunbiz.org/Inquiry/CorporationSearch/SearchResultDetail?inquirytype=EntityName&directionType=Initial&searchNameOrder=PRIMEBIND%20L26000048504&aggregateId=flal-l26000048504-6af9ab97-9b7c-4f96-ac5d-cb48f1d1d84e&searchTerm=primebind&listNameOrder=PRIMEBIND%20L26000048504" target="_blank" rel="noopener noreferrer" className="text-xs text-[#555] hover:text-white transition-colors">SunBiz ↗</a>
+          <a href="https://search.sunbiz.org/Inquiry/CorporationSearch/SearchResultDetail?inquirytype=EntityName&directionType=Initial&searchNameOrder=PRIMEBIND%20L26000048504&aggregateId=flal-l26000048504-6af9ab97-9b7c-4f96-ac5d-cb48f1d1d84e&searchTerm=primebind&listNameOrder=PRIMEBIND%20L26000048504" target="_blank" rel="noopener noreferrer" className="text-xs text-[#555] hover:text-white transition-colors">Sunbiz ↗</a>
         </div>
         <div className="grid grid-cols-2 gap-x-12 gap-y-3 sm:grid-cols-4 text-sm">
           {[
