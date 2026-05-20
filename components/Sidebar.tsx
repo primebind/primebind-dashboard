@@ -8,9 +8,9 @@ const nav = [
   { href: "/", label: "Overview", icon: LayoutDashboard },
   { href: "/influencers", label: "Influencers", icon: Users },
   { href: "/ads", label: "Ad Performance", icon: BarChart2 },
-  { href: "/skus", label: "SKUs", icon: Package },
   { href: "/financials", label: "Financials", icon: DollarSign },
   { href: "/kickstarter", label: "Kickstarter", icon: Rocket },
+  { href: "/skus", label: "SKUs", icon: Package },
 ];
 
 export default function Sidebar() {
