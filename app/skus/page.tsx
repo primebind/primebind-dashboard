@@ -17,10 +17,16 @@ type SKU = {
   samplesInInventory: number;
 };
 
-const COLORWAY_HEX: Record<string, string> = {
-  Obsidian: "#1a1a1a", Pearl: "#e8e8e8", Rose: "#d4a0a0",
-  Crimson: "#8b0000", Jade: "#2d5a3d", Abyss: "#1a2744",
-};
+type Color = { id: string; name: string; hex: string };
+
+const DEFAULT_COLORS: Color[] = [
+  { id: "obsidian", name: "Obsidian", hex: "#1a1a1a" },
+  { id: "pearl", name: "Pearl", hex: "#e8e8e8" },
+  { id: "rose", name: "Rose", hex: "#d4a0a0" },
+  { id: "crimson", name: "Crimson", hex: "#8b0000" },
+  { id: "jade", name: "Jade", hex: "#2d5a3d" },
+  { id: "abyss", name: "Abyss", hex: "#1a2744" },
+];
 
 const DEFAULT_SKUS: SKU[] = [
   { id: "9pb", parentId: null, name: "9 Pocket Binder", colorHex: "", unitPrice: 14, estShipping: 0, estDuties: 0, estPackaging: 0, retailPrice: 60, unitsInInventory: 0, samplesInInventory: 0 },
@@ -39,50 +45,66 @@ function fmt(n: number) {
 }
 
 export default function SKUs() {
+  const [tab, setTab] = useState<"products" | "colors">("products");
   const [skus, setSkus] = useState<SKU[]>([]);
+  const [colors, setColors] = useState<Color[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Partial<SKU>>({});
   const [addingColorTo, setAddingColorTo] = useState<string | null>(null);
-  const [colorForm, setColorForm] = useState({ name: "", colorHex: "" });
+  const [selectedColorId, setSelectedColorId] = useState("");
   const [showNewParent, setShowNewParent] = useState(false);
   const [parentForm, setParentForm] = useState({ name: "", unitPrice: "", estShipping: "", estDuties: "", estPackaging: "", retailPrice: "" });
 
+  // Colors tab state
+  const [editingColorId, setEditingColorId] = useState<string | null>(null);
+  const [colorDraft, setColorDraft] = useState<Color>({ id: "", name: "", hex: "" });
+  const [showAddColor, setShowAddColor] = useState(false);
+  const [addColorForm, setAddColorForm] = useState({ name: "", hex: "" });
+
   useEffect(() => {
-    const saved = localStorage.getItem("pb_skus");
-    if (saved) {
-      const parsed = JSON.parse(saved);
+    const savedSkus = localStorage.getItem("pb_skus");
+    if (savedSkus) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      setSkus(parsed.map((s: any) => ({ ...s, retailPrice: s.retailPrice ?? 0 })));
+      setSkus(JSON.parse(savedSkus).map((s: any) => ({ ...s, retailPrice: s.retailPrice ?? 0 })));
     } else {
       setSkus(DEFAULT_SKUS);
     }
+
+    const savedColors = localStorage.getItem("pb_colors");
+    const loadedColors: Color[] = savedColors ? JSON.parse(savedColors) : DEFAULT_COLORS;
+    setColors(loadedColors);
+    if (loadedColors.length) setSelectedColorId(loadedColors[0].id);
   }, []);
 
-  function save(updated: SKU[]) {
+  function saveSkus(updated: SKU[]) {
     setSkus(updated);
     localStorage.setItem("pb_skus", JSON.stringify(updated));
+  }
+
+  function saveColors(updated: Color[]) {
+    setColors(updated);
+    localStorage.setItem("pb_colors", JSON.stringify(updated));
   }
 
   function startEdit(s: SKU) { setEditingId(s.id); setDraft({ ...s }); }
   function commitEdit() {
     if (!editingId) return;
-    save(skus.map((s) => s.id === editingId ? { ...s, ...draft } : s));
+    saveSkus(skus.map((s) => s.id === editingId ? { ...s, ...draft } : s));
     setEditingId(null); setDraft({});
   }
   function cancelEdit() { setEditingId(null); setDraft({}); }
-  function removeSku(id: string) { save(skus.filter((s) => s.id !== id && s.parentId !== id)); }
+  function removeSku(id: string) { saveSkus(skus.filter((s) => s.id !== id && s.parentId !== id)); }
 
   function addColorway(parentId: string) {
-    if (!colorForm.name.trim()) return;
-    const hex = colorForm.colorHex || COLORWAY_HEX[colorForm.name] || "#555555";
+    const color = colors.find((c) => c.id === selectedColorId);
+    if (!color) return;
     const newChild: SKU = {
-      id: `${parentId}-${colorForm.name.toLowerCase().replace(/\s+/g, "-")}-${Date.now()}`,
-      parentId, name: colorForm.name.trim(), colorHex: hex,
+      id: `${parentId}-${color.id}-${Date.now()}`,
+      parentId, name: color.name, colorHex: color.hex,
       unitPrice: 0, estShipping: 0, estDuties: 0, estPackaging: 0, retailPrice: 0,
       unitsInInventory: 0, samplesInInventory: 0,
     };
-    save([...skus, newChild]);
-    setColorForm({ name: "", colorHex: "" });
+    saveSkus([...skus, newChild]);
     setAddingColorTo(null);
   }
 
@@ -95,14 +117,29 @@ export default function SKUs() {
       retailPrice: +parentForm.retailPrice || 0,
       unitsInInventory: 0, samplesInInventory: 0,
     };
-    save([...skus, newParent]);
+    saveSkus([...skus, newParent]);
     setParentForm({ name: "", unitPrice: "", estShipping: "", estDuties: "", estPackaging: "", retailPrice: "" });
     setShowNewParent(false);
+  }
+
+  function addColor() {
+    if (!addColorForm.name.trim() || !addColorForm.hex.trim()) return;
+    const newColor: Color = { id: `color-${Date.now()}`, name: addColorForm.name.trim(), hex: addColorForm.hex.trim() };
+    saveColors([...colors, newColor]);
+    setAddColorForm({ name: "", hex: "" });
+    setShowAddColor(false);
+  }
+
+  function commitColorEdit() {
+    if (!editingColorId) return;
+    saveColors(colors.map((c) => c.id === editingColorId ? colorDraft : c));
+    setEditingColorId(null);
   }
 
   const parents = skus.filter((s) => s.parentId === null);
   const totalUnits = skus.filter((s) => s.parentId !== null).reduce((sum, s) => sum + s.unitsInInventory, 0);
   const totalSamples = skus.filter((s) => s.parentId !== null).reduce((sum, s) => sum + s.samplesInInventory, 0);
+  const activeColor = colors.find((c) => c.id === selectedColorId);
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
@@ -111,159 +148,264 @@ export default function SKUs() {
           <h1 className="text-2xl font-semibold tracking-tight">SKUs</h1>
           <p className="text-[#888] text-sm mt-1">Product cost and inventory tracking</p>
         </div>
-        <button onClick={() => setShowNewParent(!showNewParent)} className="flex items-center gap-2 bg-white text-black text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#e0e0e0] transition-colors">
-          <Plus size={16} /> Add SKU
-        </button>
+        {tab === "products" && (
+          <button onClick={() => setShowNewParent(!showNewParent)} className="flex items-center gap-2 bg-white text-black text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#e0e0e0] transition-colors">
+            <Plus size={16} /> Add SKU
+          </button>
+        )}
+        {tab === "colors" && (
+          <button onClick={() => setShowAddColor(!showAddColor)} className="flex items-center gap-2 bg-white text-black text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#e0e0e0] transition-colors">
+            <Plus size={16} /> Add Color
+          </button>
+        )}
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
-        <div className="bg-[#111] border border-[#222] rounded-xl p-5">
-          <p className="text-[#888] text-xs uppercase tracking-wider mb-2">Units in Inventory</p>
-          <p className="text-3xl font-bold text-white">{totalUnits.toLocaleString()}</p>
-        </div>
-        <div className="bg-[#111] border border-[#222] rounded-xl p-5">
-          <p className="text-[#888] text-xs uppercase tracking-wider mb-2">Samples in Inventory</p>
-          <p className="text-3xl font-bold text-white">{totalSamples.toLocaleString()}</p>
-        </div>
-        <div className="bg-[#111] border border-[#222] rounded-xl p-5">
-          <p className="text-[#888] text-xs uppercase tracking-wider mb-2">Active SKUs</p>
-          <p className="text-3xl font-bold text-white">{parents.length}</p>
-        </div>
+      {/* Tab bar */}
+      <div className="flex gap-1 border-b border-[#222]">
+        {(["products", "colors"] as const).map((key) => (
+          <button
+            key={key}
+            onClick={() => setTab(key)}
+            className={`px-4 py-2 text-sm font-medium capitalize transition-colors border-b-2 -mb-px ${
+              tab === key ? "text-white border-white" : "text-[#555] border-transparent hover:text-[#888]"
+            }`}
+          >
+            {key}
+          </button>
+        ))}
       </div>
 
-      {showNewParent && (
-        <div className="bg-[#111] border border-[#222] rounded-xl p-6 space-y-4">
-          <h2 className="text-xs font-semibold text-[#888] uppercase tracking-wider">New SKU</h2>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-6">
-            <div className="col-span-2">
-              <label className="text-xs text-[#888] mb-1 block">Product Name</label>
-              <input className="input w-full" placeholder="9 Pocket Binder" value={parentForm.name} onChange={(e) => setParentForm({ ...parentForm, name: e.target.value })} />
+      {tab === "products" && (
+        <>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="bg-[#111] border border-[#222] rounded-xl p-5">
+              <p className="text-[#888] text-xs uppercase tracking-wider mb-2">Units in Inventory</p>
+              <p className="text-3xl font-bold text-white">{totalUnits.toLocaleString()}</p>
             </div>
-            {[["unitPrice","Unit Price ($)"],["estShipping","Est. Shipping ($)"],["estDuties","Est. Duties ($)"],["estPackaging","Est. Packaging ($)"],["retailPrice","Retail Price ($)"]].map(([key, label]) => (
-              <div key={key}>
-                <label className="text-xs text-[#888] mb-1 block">{label}</label>
-                <input type="number" className="input w-full" placeholder="0" value={(parentForm as Record<string,string>)[key]} onChange={(e) => setParentForm({ ...parentForm, [key]: e.target.value })} />
-              </div>
-            ))}
+            <div className="bg-[#111] border border-[#222] rounded-xl p-5">
+              <p className="text-[#888] text-xs uppercase tracking-wider mb-2">Samples in Inventory</p>
+              <p className="text-3xl font-bold text-white">{totalSamples.toLocaleString()}</p>
+            </div>
+            <div className="bg-[#111] border border-[#222] rounded-xl p-5">
+              <p className="text-[#888] text-xs uppercase tracking-wider mb-2">Active SKUs</p>
+              <p className="text-3xl font-bold text-white">{parents.length}</p>
+            </div>
           </div>
-          <div className="flex gap-3">
-            <button onClick={addParent} className="bg-white text-black text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#e0e0e0]">Add</button>
-            <button onClick={() => setShowNewParent(false)} className="text-[#888] text-sm px-4 py-2 hover:text-white">Cancel</button>
+
+          {showNewParent && (
+            <div className="bg-[#111] border border-[#222] rounded-xl p-6 space-y-4">
+              <h2 className="text-xs font-semibold text-[#888] uppercase tracking-wider">New SKU</h2>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-6">
+                <div className="col-span-2">
+                  <label className="text-xs text-[#888] mb-1 block">Product Name</label>
+                  <input className="input w-full" placeholder="9 Pocket Binder" value={parentForm.name} onChange={(e) => setParentForm({ ...parentForm, name: e.target.value })} />
+                </div>
+                {[["unitPrice","Unit Price ($)"],["estShipping","Est. Shipping ($)"],["estDuties","Est. Duties ($)"],["estPackaging","Est. Packaging ($)"],["retailPrice","Retail Price ($)"]].map(([key, label]) => (
+                  <div key={key}>
+                    <label className="text-xs text-[#888] mb-1 block">{label}</label>
+                    <input type="number" className="input w-full" placeholder="0" value={(parentForm as Record<string, string>)[key]} onChange={(e) => setParentForm({ ...parentForm, [key]: e.target.value })} />
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-3">
+                <button onClick={addParent} className="bg-white text-black text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#e0e0e0]">Add</button>
+                <button onClick={() => setShowNewParent(false)} className="text-[#888] text-sm px-4 py-2 hover:text-white">Cancel</button>
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-4">
+            {parents.map((parent) => {
+              const children = skus.filter((s) => s.parentId === parent.id);
+              const isEditing = editingId === parent.id;
+              const p = isEditing ? { ...parent, ...draft } as SKU : parent;
+              const landedCost = p.unitPrice + p.estShipping + p.estDuties + p.estPackaging;
+
+              return (
+                <div key={parent.id} className="bg-[#111] border border-[#222] rounded-xl overflow-hidden">
+                  <div className="px-5 py-4 border-b border-[#222] flex items-center gap-4 flex-wrap">
+                    <p className="text-white font-semibold text-sm w-36 shrink-0">{parent.name}</p>
+
+                    {isEditing ? (
+                      <>
+                        <div className="flex flex-wrap gap-3 flex-1">
+                          {[["unitPrice","Unit Price"],["estShipping","Shipping"],["estDuties","Duties"],["estPackaging","Packaging"],["retailPrice","Retail Price"]].map(([field, label]) => (
+                            <div key={field} className="flex flex-col gap-0.5">
+                              <label className="text-[10px] text-[#555] whitespace-nowrap">{label}</label>
+                              <input type="number" className="input w-16" value={(draft as Record<string, number>)[field] ?? 0} onChange={(e) => setDraft({ ...draft, [field]: +e.target.value })} />
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex gap-2 ml-2 shrink-0">
+                          <button onClick={commitEdit} className="text-green-400 hover:text-green-300"><Check size={15} /></button>
+                          <button onClick={cancelEdit} className="text-[#555] hover:text-white"><X size={15} /></button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        {[["Unit Price", fmt(parent.unitPrice)],["Est. Shipping", fmt(parent.estShipping)],["Est. Duties", fmt(parent.estDuties)],["Est. Packaging", fmt(parent.estPackaging)]].map(([label, val]) => (
+                          <div key={label} className="flex flex-col gap-0.5">
+                            <span className="text-[10px] text-[#555]">{label}</span>
+                            <span className="text-sm text-[#888]">{val}</span>
+                          </div>
+                        ))}
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-[10px] text-[#555]">Landed</span>
+                          <span className="text-sm text-white font-medium">{fmt(landedCost)}</span>
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-[10px] text-[#555]">Retail Price</span>
+                          <span className="text-sm text-green-400 font-medium">{fmt(parent.retailPrice)}</span>
+                        </div>
+                        <div className="flex gap-2 ml-auto">
+                          <button onClick={() => startEdit(parent)} className="text-[#444] hover:text-white transition-colors"><Pencil size={13} /></button>
+                          <button onClick={() => removeSku(parent.id)} className="text-[#444] hover:text-red-500 transition-colors"><Trash2 size={13} /></button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {children.length > 0 && (
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-[#444] text-xs uppercase tracking-wider border-b border-[#1a1a1a]">
+                          <th className="text-left px-5 py-2 pl-10">Colorway</th>
+                          <th className="text-left px-5 py-2">Samples</th>
+                          <th className="text-left px-5 py-2">Units in Inventory</th>
+                          <th className="px-5 py-2" />
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {children.map((child) => {
+                          const isEditingChild = editingId === child.id;
+                          return (
+                            <tr key={child.id} className="border-b border-[#1a1a1a] hover:bg-[#151515]">
+                              <td className="px-5 py-3 pl-10">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-3 h-3 rounded-full border border-[#444] shrink-0" style={{ background: child.colorHex }} />
+                                  <span className="text-white text-sm">{child.name}</span>
+                                </div>
+                              </td>
+                              <td className="px-5 py-3">
+                                {isEditingChild ? <input type="number" className="input w-20" value={draft.samplesInInventory ?? 0} onChange={(e) => setDraft({ ...draft, samplesInInventory: +e.target.value })} /> : <span className="text-[#888]">{child.samplesInInventory}</span>}
+                              </td>
+                              <td className="px-5 py-3">
+                                {isEditingChild ? <input type="number" className="input w-20" value={draft.unitsInInventory ?? 0} onChange={(e) => setDraft({ ...draft, unitsInInventory: +e.target.value })} /> : <span className="text-[#888]">{child.unitsInInventory}</span>}
+                              </td>
+                              <td className="px-5 py-3">
+                                <div className="flex gap-2 justify-end">
+                                  {isEditingChild ? (
+                                    <><button onClick={commitEdit} className="text-green-400 hover:text-green-300"><Check size={13} /></button><button onClick={cancelEdit} className="text-[#555] hover:text-white"><X size={13} /></button></>
+                                  ) : (
+                                    <><button onClick={() => startEdit(child)} className="text-[#444] hover:text-white transition-colors"><Pencil size={13} /></button><button onClick={() => removeSku(child.id)} className="text-[#444] hover:text-red-500 transition-colors"><Trash2 size={13} /></button></>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )}
+
+                  {addingColorTo === parent.id ? (
+                    <div className="px-5 py-3 pl-10 flex items-center gap-2 border-t border-[#1a1a1a]">
+                      <select
+                        className="input flex-1"
+                        value={selectedColorId}
+                        onChange={(e) => setSelectedColorId(e.target.value)}
+                        autoFocus
+                      >
+                        {colors.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </select>
+                      {activeColor && (
+                        <div className="w-4 h-4 rounded-full border border-[#444] shrink-0" style={{ background: activeColor.hex }} />
+                      )}
+                      <button onClick={() => addColorway(parent.id)} className="text-xs bg-white text-black px-3 py-1.5 rounded-lg font-medium hover:bg-[#e0e0e0]">Add</button>
+                      <button onClick={() => setAddingColorTo(null)} className="text-[#555] hover:text-white"><X size={14} /></button>
+                    </div>
+                  ) : (
+                    <button onClick={() => setAddingColorTo(parent.id)} className="w-full text-left px-5 py-2.5 pl-10 text-xs text-[#444] hover:text-[#888] transition-colors border-t border-[#1a1a1a] flex items-center gap-1.5">
+                      <Plus size={12} /> Add colorway
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {tab === "colors" && (
+        <div className="space-y-4">
+          {showAddColor && (
+            <div className="bg-[#111] border border-[#222] rounded-xl p-5 flex items-end gap-3 flex-wrap">
+              <div>
+                <label className="text-xs text-[#888] mb-1 block">Color Name</label>
+                <input className="input w-32" placeholder="Obsidian" autoFocus value={addColorForm.name} onChange={(e) => setAddColorForm({ ...addColorForm, name: e.target.value })} onKeyDown={(e) => e.key === "Enter" && addColor()} />
+              </div>
+              <div>
+                <label className="text-xs text-[#888] mb-1 block">Hex</label>
+                <input className="input w-28" placeholder="#1a1a1a" value={addColorForm.hex} onChange={(e) => setAddColorForm({ ...addColorForm, hex: e.target.value })} />
+              </div>
+              {/^#[0-9a-fA-F]{3,6}$/.test(addColorForm.hex) && (
+                <div className="w-8 h-8 rounded-lg border border-[#444] shrink-0" style={{ background: addColorForm.hex }} />
+              )}
+              <button onClick={addColor} className="bg-white text-black text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#e0e0e0]">Add</button>
+              <button onClick={() => setShowAddColor(false)} className="text-[#555] hover:text-white"><X size={14} /></button>
+            </div>
+          )}
+
+          <div className="bg-[#111] border border-[#222] rounded-xl overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[#222] text-[#555] text-xs uppercase tracking-wider">
+                  <th className="text-left px-5 py-3 w-16">Swatch</th>
+                  <th className="text-left px-5 py-3">Name</th>
+                  <th className="text-left px-5 py-3">Hex</th>
+                  <th className="px-5 py-3" />
+                </tr>
+              </thead>
+              <tbody>
+                {colors.map((color) => {
+                  const isEditingColor = editingColorId === color.id;
+                  const displayHex = isEditingColor ? colorDraft.hex : color.hex;
+                  return (
+                    <tr key={color.id} className="border-b border-[#1a1a1a] hover:bg-[#151515]">
+                      <td className="px-5 py-3">
+                        <div className="w-6 h-6 rounded-md border border-[#444]" style={{ background: displayHex }} />
+                      </td>
+                      <td className="px-5 py-3">
+                        {isEditingColor ? (
+                          <input className="input w-32" value={colorDraft.name} onChange={(e) => setColorDraft({ ...colorDraft, name: e.target.value })} />
+                        ) : (
+                          <span className="text-white font-medium">{color.name}</span>
+                        )}
+                      </td>
+                      <td className="px-5 py-3">
+                        {isEditingColor ? (
+                          <input className="input w-28" value={colorDraft.hex} onChange={(e) => setColorDraft({ ...colorDraft, hex: e.target.value })} />
+                        ) : (
+                          <span className="text-[#555] font-mono text-xs">{color.hex}</span>
+                        )}
+                      </td>
+                      <td className="px-5 py-3">
+                        <div className="flex gap-2 justify-end">
+                          {isEditingColor ? (
+                            <><button onClick={commitColorEdit} className="text-green-400 hover:text-green-300"><Check size={13} /></button><button onClick={() => setEditingColorId(null)} className="text-[#555] hover:text-white"><X size={13} /></button></>
+                          ) : (
+                            <><button onClick={() => { setEditingColorId(color.id); setColorDraft({ ...color }); }} className="text-[#444] hover:text-white transition-colors"><Pencil size={13} /></button><button onClick={() => saveColors(colors.filter((c) => c.id !== color.id))} className="text-[#444] hover:text-red-500 transition-colors"><Trash2 size={13} /></button></>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
-
-      <div className="space-y-4">
-        {parents.map((parent) => {
-          const children = skus.filter((s) => s.parentId === parent.id);
-          const isEditing = editingId === parent.id;
-          const p = isEditing ? { ...parent, ...draft } as SKU : parent;
-          const landedCost = p.unitPrice + p.estShipping + p.estDuties + p.estPackaging;
-
-          return (
-            <div key={parent.id} className="bg-[#111] border border-[#222] rounded-xl overflow-hidden">
-              <div className="px-5 py-4 border-b border-[#222] flex items-center gap-4 flex-wrap">
-                <p className="text-white font-semibold text-sm w-36 shrink-0">{parent.name}</p>
-
-                {isEditing ? (
-                  <>
-                    <div className="flex flex-wrap gap-3 flex-1">
-                      {[["unitPrice","Unit Price"],["estShipping","Shipping"],["estDuties","Duties"],["estPackaging","Packaging"],["retailPrice","Retail Price"]].map(([field, label]) => (
-                        <div key={field} className="flex flex-col gap-0.5">
-                          <label className="text-[10px] text-[#555] whitespace-nowrap">{label}</label>
-                          <input type="number" className="input w-16" value={(draft as Record<string, number>)[field] ?? 0} onChange={(e) => setDraft({ ...draft, [field]: +e.target.value })} />
-                        </div>
-                      ))}
-                    </div>
-                    <div className="flex gap-2 ml-2 shrink-0">
-                      <button onClick={commitEdit} className="text-green-400 hover:text-green-300"><Check size={15} /></button>
-                      <button onClick={cancelEdit} className="text-[#555] hover:text-white"><X size={15} /></button>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    {[["Unit Price", fmt(parent.unitPrice)],["Est. Shipping", fmt(parent.estShipping)],["Est. Duties", fmt(parent.estDuties)],["Est. Packaging", fmt(parent.estPackaging)]].map(([label, val]) => (
-                      <div key={label} className="flex flex-col gap-0.5">
-                        <span className="text-[10px] text-[#555]">{label}</span>
-                        <span className="text-sm text-[#888]">{val}</span>
-                      </div>
-                    ))}
-                    <div className="flex flex-col gap-0.5">
-                      <span className="text-[10px] text-[#555]">Landed</span>
-                      <span className="text-sm text-white font-medium">{fmt(landedCost)}</span>
-                    </div>
-                    <div className="flex flex-col gap-0.5">
-                      <span className="text-[10px] text-[#555]">Retail Price</span>
-                      <span className="text-sm text-green-400 font-medium">{fmt(parent.retailPrice)}</span>
-                    </div>
-                    <div className="flex gap-2 ml-auto">
-                      <button onClick={() => startEdit(parent)} className="text-[#444] hover:text-white transition-colors"><Pencil size={13} /></button>
-                      <button onClick={() => removeSku(parent.id)} className="text-[#444] hover:text-red-500 transition-colors"><Trash2 size={13} /></button>
-                    </div>
-                  </>
-                )}
-              </div>
-
-              {children.length > 0 && (
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-[#444] text-xs uppercase tracking-wider border-b border-[#1a1a1a]">
-                      <th className="text-left px-5 py-2 pl-10">Colorway</th>
-                      <th className="text-left px-5 py-2">Samples</th>
-                      <th className="text-left px-5 py-2">Units in Inventory</th>
-                      <th className="px-5 py-2" />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {children.map((child) => {
-                      const isEditingChild = editingId === child.id;
-                      return (
-                        <tr key={child.id} className="border-b border-[#1a1a1a] hover:bg-[#151515]">
-                          <td className="px-5 py-3 pl-10">
-                            <div className="flex items-center gap-2">
-                              <div className="w-3 h-3 rounded-full border border-[#444] shrink-0" style={{ background: child.colorHex }} />
-                              <span className="text-white text-sm">{child.name}</span>
-                            </div>
-                          </td>
-                          <td className="px-5 py-3">
-                            {isEditingChild ? <input type="number" className="input w-20" value={draft.samplesInInventory ?? 0} onChange={(e) => setDraft({ ...draft, samplesInInventory: +e.target.value })} /> : <span className="text-[#888]">{child.samplesInInventory}</span>}
-                          </td>
-                          <td className="px-5 py-3">
-                            {isEditingChild ? <input type="number" className="input w-20" value={draft.unitsInInventory ?? 0} onChange={(e) => setDraft({ ...draft, unitsInInventory: +e.target.value })} /> : <span className="text-[#888]">{child.unitsInInventory}</span>}
-                          </td>
-                          <td className="px-5 py-3">
-                            <div className="flex gap-2 justify-end">
-                              {isEditingChild ? (
-                                <><button onClick={commitEdit} className="text-green-400 hover:text-green-300"><Check size={13} /></button><button onClick={cancelEdit} className="text-[#555] hover:text-white"><X size={13} /></button></>
-                              ) : (
-                                <><button onClick={() => startEdit(child)} className="text-[#444] hover:text-white transition-colors"><Pencil size={13} /></button><button onClick={() => removeSku(child.id)} className="text-[#444] hover:text-red-500 transition-colors"><Trash2 size={13} /></button></>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              )}
-
-              {addingColorTo === parent.id ? (
-                <div className="px-5 py-3 pl-10 flex items-center gap-2 border-t border-[#1a1a1a]">
-                  <input className="input w-32" placeholder="Color name" autoFocus value={colorForm.name} onChange={(e) => setColorForm({ ...colorForm, name: e.target.value })} onKeyDown={(e) => e.key === "Enter" && addColorway(parent.id)} />
-                  <input className="input w-24" placeholder="Hex (opt)" value={colorForm.colorHex} onChange={(e) => setColorForm({ ...colorForm, colorHex: e.target.value })} />
-                  {colorForm.colorHex && <div className="w-4 h-4 rounded-full border border-[#444]" style={{ background: colorForm.colorHex }} />}
-                  <button onClick={() => addColorway(parent.id)} className="text-xs bg-white text-black px-3 py-1.5 rounded-lg font-medium hover:bg-[#e0e0e0]">Add</button>
-                  <button onClick={() => { setAddingColorTo(null); setColorForm({ name: "", colorHex: "" }); }} className="text-[#555] hover:text-white"><X size={14} /></button>
-                </div>
-              ) : (
-                <button onClick={() => setAddingColorTo(parent.id)} className="w-full text-left px-5 py-2.5 pl-10 text-xs text-[#444] hover:text-[#888] transition-colors border-t border-[#1a1a1a] flex items-center gap-1.5">
-                  <Plus size={12} /> Add colorway
-                </button>
-              )}
-            </div>
-          );
-        })}
-      </div>
     </div>
   );
 }

@@ -6,19 +6,20 @@ import { Plus, Trash2, Pencil, Check, X } from "lucide-react";
 const KS_FEE = 0.105;
 
 type TierItem = { skuId: string; qty: number };
-
-type Tier = {
-  id: string;
-  name: string;
-  price: number;
-  contents: TierItem[];
-  slots: number;
-  note: string;
-};
-
-type Addon = { id: string; name: string; price: number; note: string };
-type Unlockable = { id: string; name: string; milestone: number; description: string; unlocked: boolean };
+type Tier = { id: string; name: string; price: number; contents: TierItem[]; slots: number; note: string };
+type Addon = { id: string; skuId: string; price: number; note: string };
+type Unlockable = { id: string; refType: "color" | "sku"; refId: string; milestone: number; description: string; unlocked: boolean };
 type SKU = { id: string; parentId: string | null; name: string; retailPrice: number };
+type Color = { id: string; name: string; hex: string };
+
+const DEFAULT_COLORS: Color[] = [
+  { id: "obsidian", name: "Obsidian", hex: "#1a1a1a" },
+  { id: "pearl", name: "Pearl", hex: "#e8e8e8" },
+  { id: "rose", name: "Rose", hex: "#d4a0a0" },
+  { id: "crimson", name: "Crimson", hex: "#8b0000" },
+  { id: "jade", name: "Jade", hex: "#2d5a3d" },
+  { id: "abyss", name: "Abyss", hex: "#1a2744" },
+];
 
 const DEFAULT_TIERS: Tier[] = [
   { id: "1", name: "Early Bird", price: 39, contents: [{ skuId: "9pb", qty: 1 }], slots: 100, note: "" },
@@ -30,15 +31,15 @@ const DEFAULT_TIERS: Tier[] = [
 ];
 
 const DEFAULT_ADDONS: Addon[] = [
-  { id: "1", name: "9 Pocket Binder", price: 48, note: "Steers toward Duo tier" },
-  { id: "2", name: "12 Pocket Binder", price: 58, note: "Steers toward Prime over Duo + add-ons" },
-  { id: "3", name: "Card Box", price: 30, note: "$5 below retail — low friction" },
-  { id: "4", name: "FindMy Upgrade", price: 20, note: "Per binder, applied during BackerKit survey" },
+  { id: "1", skuId: "9pb", price: 48, note: "Steers toward Duo tier" },
+  { id: "2", skuId: "12pb", price: 58, note: "Steers toward Prime over Duo + add-ons" },
+  { id: "3", skuId: "cb", price: 30, note: "$5 below retail — low friction" },
+  { id: "4", skuId: "fm9pb", price: 20, note: "Per binder, applied during BackerKit survey" },
 ];
 
 const DEFAULT_UNLOCKABLES: Unlockable[] = [
-  { id: "1", name: "Jade Colorway", milestone: 50000, description: "Deep green — stretch colorway", unlocked: false },
-  { id: "2", name: "Abyss Colorway", milestone: 100000, description: "Dark navy — stretch colorway", unlocked: false },
+  { id: "1", refType: "color", refId: "jade", milestone: 50000, description: "Deep green — stretch colorway", unlocked: false },
+  { id: "2", refType: "color", refId: "abyss", milestone: 100000, description: "Dark navy — stretch colorway", unlocked: false },
 ];
 
 function calcRetail(contents: TierItem[], skus: SKU[]): number {
@@ -165,15 +166,22 @@ function TierRow({ tier, skus, onSave, onDelete }: { tier: Tier; skus: SKU[]; on
 }
 
 // ── Addon row ─────────────────────────────────────────────────────────────────
-function AddonRow({ addon, onSave, onDelete }: { addon: Addon; onSave: (a: Addon) => void; onDelete: () => void }) {
+function AddonRow({ addon, skus, onSave, onDelete }: { addon: Addon; skus: SKU[]; onSave: (a: Addon) => void; onDelete: () => void }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(addon);
   function commit() { onSave(draft); setEditing(false); }
   function cancel() { setDraft(addon); setEditing(false); }
 
+  const parentSkus = skus.filter((s) => s.parentId === null);
+  const itemName = skus.find((s) => s.id === addon.skuId)?.name || "—";
+
   if (editing) return (
     <tr className="border-b border-[#1a1a1a] bg-[#151515]">
-      <td className="px-4 py-3"><input className="input w-40" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></td>
+      <td className="px-4 py-3">
+        <select className="input w-44" value={draft.skuId} onChange={(e) => setDraft({ ...draft, skuId: e.target.value })}>
+          {parentSkus.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+        </select>
+      </td>
       <td className="px-4 py-3"><input type="number" className="input w-20" value={draft.price} onChange={(e) => setDraft({ ...draft, price: +e.target.value })} /></td>
       <td className="px-4 py-3"><input className="input w-full" value={draft.note} onChange={(e) => setDraft({ ...draft, note: e.target.value })} /></td>
       <td className="px-4 py-3"><div className="flex gap-2"><button onClick={commit} className="text-green-400 hover:text-green-300"><Check size={14} /></button><button onClick={cancel} className="text-[#555] hover:text-white"><X size={14} /></button></div></td>
@@ -182,7 +190,7 @@ function AddonRow({ addon, onSave, onDelete }: { addon: Addon; onSave: (a: Addon
 
   return (
     <tr className="border-b border-[#1a1a1a] hover:bg-[#151515]">
-      <td className="px-4 py-3 text-white text-sm">{addon.name}</td>
+      <td className="px-4 py-3 text-white text-sm">{itemName}</td>
       <td className="px-4 py-3 text-white font-medium">${addon.price}</td>
       <td className="px-4 py-3 text-[#555] text-xs">{addon.note}</td>
       <td className="px-4 py-3"><div className="flex gap-2"><button onClick={() => setEditing(true)} className="text-[#444] hover:text-white transition-colors"><Pencil size={13} /></button><button onClick={onDelete} className="text-[#444] hover:text-red-500 transition-colors"><Trash2 size={13} /></button></div></td>
@@ -191,25 +199,74 @@ function AddonRow({ addon, onSave, onDelete }: { addon: Addon; onSave: (a: Addon
 }
 
 // ── Unlockable row ────────────────────────────────────────────────────────────
-function UnlockableRow({ item, onSave, onDelete }: { item: Unlockable; onSave: (u: Unlockable) => void; onDelete: () => void }) {
+function UnlockableRow({ item, skus, colors, onSave, onDelete }: { item: Unlockable; skus: SKU[]; colors: Color[]; onSave: (u: Unlockable) => void; onDelete: () => void }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(item);
   function commit() { onSave(draft); setEditing(false); }
   function cancel() { setDraft(item); setEditing(false); }
 
+  const parentSkus = skus.filter((s) => s.parentId === null);
+
+  function switchType(type: "color" | "sku") {
+    const defaultId = type === "color" ? (colors[0]?.id || "") : (parentSkus[0]?.id || "");
+    setDraft({ ...draft, refType: type, refId: defaultId });
+  }
+
+  const goalColor = item.refType === "color" ? colors.find((c) => c.id === item.refId) : null;
+  const goalLabel = item.refType === "color"
+    ? (goalColor?.name || item.refId || "—")
+    : (skus.find((s) => s.id === item.refId)?.name || item.refId || "—");
+
+  const draftColor = draft.refType === "color" ? colors.find((c) => c.id === draft.refId) : null;
+
   if (editing) return (
     <tr className="border-b border-[#1a1a1a] bg-[#151515]">
-      <td className="px-4 py-3"><input className="input w-36" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></td>
+      <td className="px-4 py-3">
+        <div className="space-y-1.5">
+          <div className="flex gap-1">
+            {(["color", "sku"] as const).map((type) => (
+              <button
+                key={type}
+                onClick={() => switchType(type)}
+                className={`text-xs px-2.5 py-0.5 rounded font-medium transition-colors capitalize ${
+                  draft.refType === type ? "bg-white text-black" : "bg-[#222] text-[#888] hover:text-white"
+                }`}
+              >
+                {type}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-1.5">
+            <select className="input flex-1" value={draft.refId} onChange={(e) => setDraft({ ...draft, refId: e.target.value })}>
+              {draft.refType === "color"
+                ? colors.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)
+                : parentSkus.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)
+              }
+            </select>
+            {draftColor && <div className="w-4 h-4 rounded-full border border-[#444] shrink-0" style={{ background: draftColor.hex }} />}
+          </div>
+        </div>
+      </td>
       <td className="px-4 py-3"><input type="number" className="input w-28" value={draft.milestone} onChange={(e) => setDraft({ ...draft, milestone: +e.target.value })} /></td>
       <td className="px-4 py-3"><input className="input w-full" value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} /></td>
       <td className="px-4 py-3 text-[#555] text-xs">—</td>
-      <td className="px-4 py-3"><div className="flex gap-2"><button onClick={commit} className="text-green-400 hover:text-green-300"><Check size={14} /></button><button onClick={cancel} className="text-[#555] hover:text-white"><X size={14} /></button></div></td>
+      <td className="px-4 py-3">
+        <div className="flex gap-2">
+          <button onClick={commit} className="text-green-400 hover:text-green-300"><Check size={14} /></button>
+          <button onClick={cancel} className="text-[#555] hover:text-white"><X size={14} /></button>
+        </div>
+      </td>
     </tr>
   );
 
   return (
     <tr className="border-b border-[#1a1a1a] hover:bg-[#151515]">
-      <td className="px-4 py-3 text-white text-sm font-medium">{item.name}</td>
+      <td className="px-4 py-3">
+        <div className="flex items-center gap-2">
+          {goalColor && <div className="w-3 h-3 rounded-full border border-[#444] shrink-0" style={{ background: goalColor.hex }} />}
+          <span className="text-white text-sm font-medium">{goalLabel}</span>
+        </div>
+      </td>
       <td className="px-4 py-3 text-[#888] text-sm">${item.milestone.toLocaleString()}</td>
       <td className="px-4 py-3 text-[#555] text-xs">{item.description}</td>
       <td className="px-4 py-3">
@@ -217,7 +274,12 @@ function UnlockableRow({ item, onSave, onDelete }: { item: Unlockable; onSave: (
           {item.unlocked ? "Unlocked" : "Locked"}
         </button>
       </td>
-      <td className="px-4 py-3"><div className="flex gap-2"><button onClick={() => setEditing(true)} className="text-[#444] hover:text-white transition-colors"><Pencil size={13} /></button><button onClick={onDelete} className="text-[#444] hover:text-red-500 transition-colors"><Trash2 size={13} /></button></div></td>
+      <td className="px-4 py-3">
+        <div className="flex gap-2">
+          <button onClick={() => setEditing(true)} className="text-[#444] hover:text-white transition-colors"><Pencil size={13} /></button>
+          <button onClick={onDelete} className="text-[#444] hover:text-red-500 transition-colors"><Trash2 size={13} /></button>
+        </div>
+      </td>
     </tr>
   );
 }
@@ -228,28 +290,45 @@ export default function Kickstarter() {
   const [addons, setAddons] = useState<Addon[]>([]);
   const [unlockables, setUnlockables] = useState<Unlockable[]>([]);
   const [skus, setSkus] = useState<SKU[]>([]);
+  const [colors, setColors] = useState<Color[]>([]);
 
   useEffect(() => {
     const rawSkus = localStorage.getItem("pb_skus");
     if (rawSkus) setSkus(JSON.parse(rawSkus));
 
+    const rawColors = localStorage.getItem("pb_colors");
+    setColors(rawColors ? JSON.parse(rawColors) : DEFAULT_COLORS);
+
     const t = localStorage.getItem("pb_ks_tiers");
     if (t) {
-      const parsed = JSON.parse(t);
-      // migrate old string contents to empty array
-      setTiers(parsed.map((tier: Tier & { contents: TierItem[] | string }) => ({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      setTiers(JSON.parse(t).map((tier: any) => ({
         ...tier,
-        contents: typeof tier.contents === "string" ? [] : tier.contents,
+        contents: typeof tier.contents === "string" ? [] : (tier.contents || []),
       })));
     } else {
       setTiers(DEFAULT_TIERS);
     }
 
     const a = localStorage.getItem("pb_ks_addons");
-    setAddons(a ? JSON.parse(a) : DEFAULT_ADDONS);
+    if (a) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      setAddons(JSON.parse(a).map((addon: any) => ({ ...addon, skuId: addon.skuId || "" })));
+    } else {
+      setAddons(DEFAULT_ADDONS);
+    }
 
     const u = localStorage.getItem("pb_ks_unlockables");
-    setUnlockables(u ? JSON.parse(u) : DEFAULT_UNLOCKABLES);
+    if (u) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      setUnlockables(JSON.parse(u).map((item: any) => ({
+        ...item,
+        refType: item.refType || "color",
+        refId: item.refId || "",
+      })));
+    } else {
+      setUnlockables(DEFAULT_UNLOCKABLES);
+    }
   }, []);
 
   function saveTiers(updated: Tier[]) { setTiers(updated); localStorage.setItem("pb_ks_tiers", JSON.stringify(updated)); }
@@ -260,10 +339,12 @@ export default function Kickstarter() {
     saveTiers([...tiers, { id: Date.now().toString(), name: "New Tier", price: 0, contents: [], slots: 0, note: "" }]);
   }
   function addAddon() {
-    saveAddons([...addons, { id: Date.now().toString(), name: "New Add-on", price: 0, note: "" }]);
+    const firstSkuId = skus.filter((s) => s.parentId === null)[0]?.id || "";
+    saveAddons([...addons, { id: Date.now().toString(), skuId: firstSkuId, price: 0, note: "" }]);
   }
   function addUnlockable() {
-    saveUnlockables([...unlockables, { id: Date.now().toString(), name: "New Stretch Goal", milestone: 0, description: "", unlocked: false }]);
+    const firstColorId = colors[0]?.id || "";
+    saveUnlockables([...unlockables, { id: Date.now().toString(), refType: "color", refId: firstColorId, milestone: 0, description: "", unlocked: false }]);
   }
 
   return (
@@ -342,7 +423,7 @@ export default function Kickstarter() {
             </thead>
             <tbody>
               {addons.map((a) => (
-                <AddonRow key={a.id} addon={a} onSave={(u) => saveAddons(addons.map((x) => x.id === u.id ? u : x))} onDelete={() => saveAddons(addons.filter((x) => x.id !== a.id))} />
+                <AddonRow key={a.id} addon={a} skus={skus} onSave={(u) => saveAddons(addons.map((x) => x.id === u.id ? u : x))} onDelete={() => saveAddons(addons.filter((x) => x.id !== a.id))} />
               ))}
             </tbody>
           </table>
@@ -369,7 +450,14 @@ export default function Kickstarter() {
             </thead>
             <tbody>
               {unlockables.map((u) => (
-                <UnlockableRow key={u.id} item={u} onSave={(upd) => saveUnlockables(unlockables.map((x) => x.id === upd.id ? upd : x))} onDelete={() => saveUnlockables(unlockables.filter((x) => x.id !== u.id))} />
+                <UnlockableRow
+                  key={u.id}
+                  item={u}
+                  skus={skus}
+                  colors={colors}
+                  onSave={(upd) => saveUnlockables(unlockables.map((x) => x.id === upd.id ? upd : x))}
+                  onDelete={() => saveUnlockables(unlockables.filter((x) => x.id !== u.id))}
+                />
               ))}
             </tbody>
           </table>
