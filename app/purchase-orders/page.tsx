@@ -5,7 +5,7 @@ import { Plus, Trash2, Pencil, Check, X, ChevronDown, ChevronRight, Upload } fro
 
 type POStatus = "Open" | "Partial" | "Paid" | "Cancelled";
 type POItem = { id: string; description: string; qty: number; unitCost: number; account: string };
-type Payment = { id: string; date: string; amount: number; method: "Manual" | "CSV Match"; bankRef: string };
+type Payment = { id: string; date: string; amount: number; method: "Manual" | "CSV Match"; bankRef: string; finTxnIds?: string[] };
 type PurchaseOrder = {
   id: string;
   vendorId: string;
@@ -70,9 +70,14 @@ export default function PurchaseOrders() {
   const [payTab, setPayTab] = useState<"manual" | "csv">("manual");
   const [payAmount, setPayAmount] = useState("");
   const [payDate, setPayDate] = useState(new Date().toISOString().slice(0, 10));
+  const [payFromBank, setPayFromBank] = useState("US Bank");
+  const [payFeeAmount, setPayFeeAmount] = useState("");
+  const [payFeeAccount, setPayFeeAccount] = useState("71401");
   const [csvRows, setCsvRows] = useState<CsvRow[]>([]);
   const [csvMatches, setCsvMatches] = useState<CsvRow[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const BANK_ACCOUNTS = ["US Bank", "Chase", "Wise", "Other"];
 
   // Vendor edit state
   const [editingVendorId, setEditingVendorId] = useState<string | null>(null);
@@ -104,6 +109,37 @@ export default function PurchaseOrders() {
 
   function savePos(updated: PurchaseOrder[]) { setPos(updated); localStorage.setItem("pb_pos", JSON.stringify(updated)); }
   function saveVendors(updated: Vendor[]) { setVendors(updated); localStorage.setItem("pb_vendors", JSON.stringify(updated)); }
+
+  function postToFinancials(entries: { date: string; description: string; amount: number; account: string; bank: string }[]): string[] {
+    const existing = JSON.parse(localStorage.getItem("pb_financials") || "[]");
+    const ids: string[] = [];
+    const newEntries = entries.map((e) => {
+      const id = `po-${Date.now()}-${Math.random()}`;
+      ids.push(id);
+      return { ...e, id };
+    });
+    localStorage.setItem("pb_financials", JSON.stringify([...existing, ...newEntries]));
+    return ids;
+  }
+
+  function removeFromFinancials(ids: string[]) {
+    if (!ids?.length) return;
+    const existing = JSON.parse(localStorage.getItem("pb_financials") || "[]");
+    localStorage.setItem("pb_financials", JSON.stringify(existing.filter((t: { id: string }) => !ids.includes(t.id))));
+  }
+
+  function deletePayment(poId: string, paymentId: string) {
+    savePos(pos.map((p) => {
+      if (p.id !== poId) return p;
+      const payment = p.payments.find((pay) => pay.id === paymentId);
+      if (payment?.finTxnIds) removeFromFinancials(payment.finTxnIds);
+      const payments = p.payments.filter((pay) => pay.id !== paymentId);
+      const paid = calcPaid(payments);
+      const total = calcTotal(p.items);
+      const status: POStatus = payments.length === 0 ? "Open" : paid >= total ? "Paid" : "Partial";
+      return { ...p, payments, status };
+    }));
+  }
 
   function vendorLabel(po: PurchaseOrder) {
     return vendors.find((v) => v.id === po.vendorId)?.name || po.vendorName || "—";
@@ -143,6 +179,9 @@ export default function PurchaseOrders() {
     setPayTab("manual");
     setPayAmount(balance.toFixed(2));
     setPayDate(new Date().toISOString().slice(0, 10));
+    setPayFromBank("US Bank");
+    setPayFeeAmount("");
+    setPayFeeAccount("71401");
     setCsvRows([]);
     setCsvMatches([]);
   }
@@ -165,12 +204,29 @@ export default function PurchaseOrders() {
   function logManualPayment() {
     const amount = parseFloat(payAmount);
     if (!payPoId || isNaN(amount) || amount <= 0) return;
-    applyPayment(payPoId, { id: Date.now().toString(), date: payDate, amount, method: "Manual", bankRef: "" });
+    const po = pos.find((p) => p.id === payPoId)!;
+    const poIdx = pos.indexOf(po);
+    const vendor = vendorLabel(po);
+    const entries: { date: string; description: string; amount: number; account: string; bank: string }[] = [
+      { date: payDate, description: `${vendor} — ${poNumber(poIdx)}`, amount: -amount, account: "", bank: payFromBank },
+    ];
+    const feeAmt = parseFloat(payFeeAmount);
+    if (!isNaN(feeAmt) && feeAmt > 0) {
+      entries.push({ date: payDate, description: `Wire / transfer fee — ${vendor}`, amount: -feeAmt, account: payFeeAccount, bank: payFromBank });
+    }
+    const finTxnIds = postToFinancials(entries);
+    applyPayment(payPoId, { id: Date.now().toString(), date: payDate, amount, method: "Manual", bankRef: "", finTxnIds });
   }
 
   function logCsvPayment(row: CsvRow) {
     if (!payPoId) return;
-    applyPayment(payPoId, { id: Date.now().toString(), date: row.date, amount: row.amount, method: "CSV Match", bankRef: row.description });
+    const po = pos.find((p) => p.id === payPoId)!;
+    const poIdx = pos.indexOf(po);
+    const vendor = vendorLabel(po);
+    const finTxnIds = postToFinancials([
+      { date: row.date, description: row.description || `${vendor} — ${poNumber(poIdx)}`, amount: -row.amount, account: "", bank: payFromBank },
+    ]);
+    applyPayment(payPoId, { id: Date.now().toString(), date: row.date, amount: row.amount, method: "CSV Match", bankRef: row.description, finTxnIds });
   }
 
   function applyPayment(id: string, payment: Payment) {
@@ -396,19 +452,53 @@ export default function PurchaseOrders() {
                                 </div>
 
                                 {payTab === "manual" && (
-                                  <div className="flex items-center gap-3 flex-wrap">
-                                    <input type="number" className="input w-28" autoFocus placeholder="Amount" value={payAmount} onChange={(e) => setPayAmount(e.target.value)} onKeyDown={(e) => e.key === "Enter" && logManualPayment()} />
-                                    <input type="date" className="input w-36" value={payDate} onChange={(e) => setPayDate(e.target.value)} />
-                                    <button onClick={logManualPayment} className="text-xs bg-white text-black px-3 py-1.5 rounded-lg font-medium hover:bg-[#e0e0e0]">Confirm</button>
-                                    <span className="text-xs text-[#555]">Balance: {fmt(balance)}</span>
+                                  <div className="space-y-3">
+                                    <div className="flex items-center gap-3 flex-wrap">
+                                      <div className="flex flex-col gap-0.5">
+                                        <label className="text-[10px] text-[#555] uppercase tracking-wider">Amount</label>
+                                        <input type="number" className="input w-28" autoFocus placeholder="Amount" value={payAmount} onChange={(e) => setPayAmount(e.target.value)} onKeyDown={(e) => e.key === "Enter" && logManualPayment()} />
+                                      </div>
+                                      <div className="flex flex-col gap-0.5">
+                                        <label className="text-[10px] text-[#555] uppercase tracking-wider">Date</label>
+                                        <input type="date" className="input w-36" value={payDate} onChange={(e) => setPayDate(e.target.value)} />
+                                      </div>
+                                      <div className="flex flex-col gap-0.5">
+                                        <label className="text-[10px] text-[#555] uppercase tracking-wider">Paid from</label>
+                                        <select className="input w-28" value={payFromBank} onChange={(e) => setPayFromBank(e.target.value)}>
+                                          {BANK_ACCOUNTS.map((b) => <option key={b}>{b}</option>)}
+                                        </select>
+                                      </div>
+                                      <div className="flex items-end gap-2">
+                                        <button onClick={logManualPayment} className="text-xs bg-white text-black px-3 py-1.5 rounded-lg font-medium hover:bg-[#e0e0e0]">Confirm</button>
+                                        <span className="text-xs text-[#555]">Balance: {fmt(balance)}</span>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-3 flex-wrap">
+                                      <div className="flex flex-col gap-0.5">
+                                        <label className="text-[10px] text-[#555] uppercase tracking-wider">Fee (optional)</label>
+                                        <input type="number" className="input w-20" placeholder="0.00" value={payFeeAmount} onChange={(e) => setPayFeeAmount(e.target.value)} />
+                                      </div>
+                                      <div className="flex flex-col gap-0.5">
+                                        <label className="text-[10px] text-[#555] uppercase tracking-wider">Book fee to</label>
+                                        <select className="input w-44 text-xs" value={payFeeAccount} onChange={(e) => setPayFeeAccount(e.target.value)}>
+                                          <option value="71401">Finance Charge</option>
+                                          <option value="71400">Bank Charges & Fees</option>
+                                          <option value="72300">Interest Paid</option>
+                                          <option value="73300">Other Business Expenses</option>
+                                        </select>
+                                      </div>
+                                    </div>
                                   </div>
                                 )}
 
                                 {payTab === "csv" && (
                                   <div className="space-y-3">
-                                    <div className="flex items-center gap-3">
+                                    <div className="flex items-center gap-3 flex-wrap">
+                                      <select className="input text-xs w-28" value={payFromBank} onChange={(e) => setPayFromBank(e.target.value)}>
+                                        {BANK_ACCOUNTS.map((b) => <option key={b}>{b}</option>)}
+                                      </select>
                                       <button onClick={() => fileRef.current?.click()} className="flex items-center gap-1.5 text-xs bg-[#1a1a1a] border border-[#333] text-[#888] hover:text-white px-3 py-1.5 rounded-lg transition-colors">
-                                        <Upload size={12} /> Upload US Bank CSV
+                                        <Upload size={12} /> Upload CSV
                                       </button>
                                       <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleCSV} />
                                       {csvRows.length > 0 && <span className="text-xs text-[#555]">{csvRows.length} transactions loaded</span>}
@@ -453,12 +543,15 @@ export default function PurchaseOrders() {
                                 {po.payments.length > 0 && (
                                   <div className="pt-2 border-t border-[#1a1a1a] space-y-1">
                                     <p className="text-[10px] text-[#444] uppercase tracking-wider">Payment history</p>
-                                    {po.payments.map((p) => (
-                                      <div key={p.id} className="flex items-center gap-3 text-xs">
-                                        <span className="text-[#555] w-20">{p.date}</span>
-                                        <span className="text-white">{fmt(p.amount)}</span>
-                                        <span className="text-[#444]">{p.method}</span>
-                                        {p.bankRef && <span className="text-[#555] truncate flex-1">{p.bankRef}</span>}
+                                    {po.payments.map((pmt) => (
+                                      <div key={pmt.id} className="flex items-center gap-3 text-xs group">
+                                        <span className="text-[#555] w-20">{pmt.date}</span>
+                                        <span className="text-white">{fmt(pmt.amount)}</span>
+                                        <span className="text-[#444]">{pmt.method}</span>
+                                        {pmt.bankRef && <span className="text-[#555] truncate flex-1">{pmt.bankRef}</span>}
+                                        <button onClick={() => deletePayment(po.id, pmt.id)} className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-[#444] hover:text-red-500">
+                                          <X size={11} />
+                                        </button>
                                       </div>
                                     ))}
                                   </div>
