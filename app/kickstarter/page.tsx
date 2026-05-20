@@ -148,7 +148,7 @@ function TierRow({ tier, skus, onSave, onDelete }: { tier: Tier; skus: SKU[]; on
       <td className="px-4 py-4 text-[#555] text-sm">{retail > 0 ? `$${retail}` : "—"}</td>
       <td className="px-4 py-4">
         {sv && sv.amt > 0 && (
-          <span className="text-green-400 text-sm font-medium">${sv.amt} <span className="text-[#555] text-xs">({sv.pct}%)</span></span>
+          <span className="text-green-400 text-sm font-medium">${sv.amt.toFixed(2)} <span className="text-[#555] text-xs">({sv.pct}%)</span></span>
         )}
       </td>
       <td className="px-4 py-4 text-[#888] text-sm">${(tier.price * (1 - KS_FEE)).toFixed(2)}</td>
