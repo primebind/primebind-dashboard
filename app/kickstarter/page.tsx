@@ -453,7 +453,6 @@ export default function Kickstarter() {
         <div className="flex items-center justify-between mb-3">
           <div>
             <h2 className="text-sm font-semibold text-white uppercase tracking-wider">Tiers</h2>
-            <p className="text-[#555] text-xs mt-0.5">Dual funnel — Prime ($159) lower · The Archive ($319) upper</p>
           </div>
           <button onClick={addTier} className="flex items-center gap-1.5 text-xs bg-[#1a1a1a] border border-[#333] text-[#888] hover:text-white px-3 py-1.5 rounded-lg transition-colors">
             <Plus size={13} /> Add Tier
