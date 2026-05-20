@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useState, useEffect } from "react";
-import { Plus, Trash2, Copy, ChevronDown, ChevronRight } from "lucide-react";
+import { Plus, Trash2, Copy, ChevronDown, ChevronRight, Pencil, Check, X } from "lucide-react";
 
 type Status = "Prospecting" | "Contacted" | "Interested" | "Package Sent" | "Posted" | "Passed";
 type Shipment = { id: string; skuId: string; colorId: string; batch: number };
@@ -54,6 +54,8 @@ export default function Influencers() {
   const [copied, setCopied] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [shipForm, setShipForm] = useState({ skuId: "", colorId: "", batch: 2 });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState<Partial<Influencer>>({});
 
   useEffect(() => {
     const saved = localStorage.getItem("pb_influencers");
@@ -121,6 +123,22 @@ export default function Influencers() {
   function toggleExpand(id: string) {
     setExpandedId(expandedId === id ? null : id);
   }
+
+  function startEdit(inf: Influencer) {
+    setEditingId(inf.id);
+    setEditDraft({ ...inf });
+  }
+
+  function commitEdit() {
+    if (!editingId || !editDraft.name || !editDraft.handle) return;
+    save(influencers.map((i) => i.id === editingId ? {
+      ...i, ...editDraft, refLink: makeRef(editDraft.handle || ""),
+    } : i));
+    setEditingId(null);
+    setEditDraft({});
+  }
+
+  function cancelEdit() { setEditingId(null); setEditDraft({}); }
 
   const parentSkus = skus.filter((s) => s.parentId === null);
   const counts = STATUSES.reduce((acc, s) => ({ ...acc, [s]: influencers.filter((i) => i.status === s).length }), {} as Record<string, number>);
@@ -206,48 +224,90 @@ export default function Influencers() {
                   <Fragment key={inf.id}>
                     <tr className="border-b border-[#1a1a1a] hover:bg-[#151515] transition-colors">
                       <td className="px-5 py-4">
-                        <p className="text-white font-medium">{inf.name}</p>
-                        <p className="text-[#555] text-xs">{inf.handle}</p>
+                        {editingId === inf.id ? (
+                          <div className="space-y-1">
+                            <input className="input w-full" value={editDraft.name || ""} onChange={(e) => setEditDraft({ ...editDraft, name: e.target.value })} placeholder="Name" />
+                            <input className="input w-full" value={editDraft.handle || ""} onChange={(e) => setEditDraft({ ...editDraft, handle: e.target.value })} placeholder="@handle" />
+                          </div>
+                        ) : (
+                          <>
+                            <p className="text-white font-medium">{inf.name}</p>
+                            <p className="text-[#555] text-xs">{inf.handle}</p>
+                          </>
+                        )}
                       </td>
-                      <td className="px-5 py-4 text-[#888]">{inf.platform}</td>
-                      <td className="px-5 py-4 text-[#888]">{inf.followers || "—"}</td>
+                      <td className="px-5 py-4 text-[#888]">
+                        {editingId === inf.id ? (
+                          <select className="input w-full" value={editDraft.platform || ""} onChange={(e) => setEditDraft({ ...editDraft, platform: e.target.value })}>
+                            {PLATFORMS.map((p) => <option key={p}>{p}</option>)}
+                          </select>
+                        ) : inf.platform}
+                      </td>
+                      <td className="px-5 py-4 text-[#888]">
+                        {editingId === inf.id ? (
+                          <input className="input w-20" value={editDraft.followers || ""} onChange={(e) => setEditDraft({ ...editDraft, followers: e.target.value })} placeholder="45K" />
+                        ) : (inf.followers || "—")}
+                      </td>
                       <td className="px-5 py-4">
                         <select
-                          value={inf.status}
-                          onChange={(e) => updateStatus(inf.id, e.target.value as Status)}
-                          className={`text-xs px-2 py-1 rounded-md border-0 font-medium focus:outline-none cursor-pointer ${STATUS_COLORS[inf.status]}`}
+                          value={editingId === inf.id ? (editDraft.status || inf.status) : inf.status}
+                          onChange={(e) => editingId === inf.id
+                            ? setEditDraft({ ...editDraft, status: e.target.value as Status })
+                            : updateStatus(inf.id, e.target.value as Status)
+                          }
+                          className={`text-xs px-2 py-1 rounded-md border-0 font-medium focus:outline-none cursor-pointer ${STATUS_COLORS[editingId === inf.id ? (editDraft.status || inf.status) : inf.status]}`}
                         >
                           {STATUSES.map((s) => <option key={s}>{s}</option>)}
                         </select>
                       </td>
                       <td className="px-5 py-4">
-                        {inf.refLink && (
+                        {inf.refLink && editingId !== inf.id && (
                           <button onClick={() => copyLink(inf.refLink, inf.id)} className="flex items-center gap-1.5 text-xs text-[#555] hover:text-white transition-colors">
                             <Copy size={12} />{copied === inf.id ? "Copied!" : "Copy link"}
                           </button>
                         )}
                       </td>
-                      <td className="px-5 py-4 text-[#555] text-xs max-w-[160px] truncate">{inf.notes || "—"}</td>
-                      <td className="px-5 py-4">
-                        <button onClick={() => toggleExpand(inf.id)} className="flex items-center gap-1.5 text-xs text-[#555] hover:text-white transition-colors">
-                          {shipped.length > 0 ? (
-                            <>
-                              <span className="flex gap-0.5">
-                                {shipped.slice(0, 4).map((s) => {
-                                  const c = colors.find((c) => c.id === s.colorId);
-                                  return <span key={s.id} className="w-2.5 h-2.5 rounded-full border border-[#444] inline-block" style={{ background: c?.hex || "#555" }} />;
-                                })}
-                              </span>
-                              <span className="text-[#888]">{shipped.length}</span>
-                            </>
-                          ) : (
-                            <span className="text-[#444]">none</span>
-                          )}
-                          {isExpanded ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
-                        </button>
+                      <td className="px-5 py-4 text-[#555] text-xs max-w-[160px]">
+                        {editingId === inf.id ? (
+                          <input className="input w-full" value={editDraft.notes || ""} onChange={(e) => setEditDraft({ ...editDraft, notes: e.target.value })} placeholder="Notes" />
+                        ) : (
+                          <span className="truncate block">{inf.notes || "—"}</span>
+                        )}
                       </td>
                       <td className="px-5 py-4">
-                        <button onClick={() => remove(inf.id)} className="text-[#444] hover:text-red-500 transition-colors"><Trash2 size={14} /></button>
+                        {editingId !== inf.id && (
+                          <button onClick={() => toggleExpand(inf.id)} className="flex items-center gap-1.5 text-xs text-[#555] hover:text-white transition-colors">
+                            {shipped.length > 0 ? (
+                              <>
+                                <span className="flex gap-0.5">
+                                  {shipped.slice(0, 4).map((s) => {
+                                    const c = colors.find((c) => c.id === s.colorId);
+                                    return <span key={s.id} className="w-2.5 h-2.5 rounded-full border border-[#444] inline-block" style={{ background: c?.hex || "#555" }} />;
+                                  })}
+                                </span>
+                                <span className="text-[#888]">{shipped.length}</span>
+                              </>
+                            ) : (
+                              <span className="text-[#444]">none</span>
+                            )}
+                            {isExpanded ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+                          </button>
+                        )}
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="flex gap-2">
+                          {editingId === inf.id ? (
+                            <>
+                              <button onClick={commitEdit} className="text-green-400 hover:text-green-300"><Check size={14} /></button>
+                              <button onClick={cancelEdit} className="text-[#555] hover:text-white"><X size={14} /></button>
+                            </>
+                          ) : (
+                            <>
+                              <button onClick={() => startEdit(inf)} className="text-[#444] hover:text-white transition-colors"><Pencil size={13} /></button>
+                              <button onClick={() => remove(inf.id)} className="text-[#444] hover:text-red-500 transition-colors"><Trash2 size={14} /></button>
+                            </>
+                          )}
+                        </div>
                       </td>
                     </tr>
 
