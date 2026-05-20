@@ -166,13 +166,15 @@ export default function SKUs() {
 
                 {isEditing ? (
                   <>
-                    {[["unitPrice","Unit Price"],["estShipping","Est. Shipping"],["estDuties","Est. Duties"],["estPackaging","Est. Packaging"],["retailPrice","Retail Price"]].map(([field, label]) => (
-                      <div key={field} className="flex flex-col gap-0.5">
-                        <label className="text-[10px] text-[#555]">{label}</label>
-                        <input type="number" className="input w-20" value={(draft as Record<string, number>)[field] ?? 0} onChange={(e) => setDraft({ ...draft, [field]: +e.target.value })} />
-                      </div>
-                    ))}
-                    <div className="flex gap-2 ml-auto">
+                    <div className="flex flex-wrap gap-3 flex-1">
+                      {[["unitPrice","Unit Price"],["estShipping","Shipping"],["estDuties","Duties"],["estPackaging","Packaging"],["retailPrice","Retail Price"]].map(([field, label]) => (
+                        <div key={field} className="flex flex-col gap-0.5">
+                          <label className="text-[10px] text-[#555] whitespace-nowrap">{label}</label>
+                          <input type="number" className="input w-16" value={(draft as Record<string, number>)[field] ?? 0} onChange={(e) => setDraft({ ...draft, [field]: +e.target.value })} />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex gap-2 ml-2 shrink-0">
                       <button onClick={commitEdit} className="text-green-400 hover:text-green-300"><Check size={15} /></button>
                       <button onClick={cancelEdit} className="text-[#555] hover:text-white"><X size={15} /></button>
                     </div>
@@ -206,8 +208,8 @@ export default function SKUs() {
                   <thead>
                     <tr className="text-[#444] text-xs uppercase tracking-wider border-b border-[#1a1a1a]">
                       <th className="text-left px-5 py-2 pl-10">Colorway</th>
-                      <th className="text-left px-5 py-2">Units in Inventory</th>
                       <th className="text-left px-5 py-2">Samples</th>
+                      <th className="text-left px-5 py-2">Units in Inventory</th>
                       <th className="px-5 py-2" />
                     </tr>
                   </thead>
@@ -223,10 +225,10 @@ export default function SKUs() {
                             </div>
                           </td>
                           <td className="px-5 py-3">
-                            {isEditingChild ? <input type="number" className="input w-20" value={draft.unitsInInventory ?? 0} onChange={(e) => setDraft({ ...draft, unitsInInventory: +e.target.value })} /> : <span className="text-[#888]">{child.unitsInInventory}</span>}
+                            {isEditingChild ? <input type="number" className="input w-20" value={draft.samplesInInventory ?? 0} onChange={(e) => setDraft({ ...draft, samplesInInventory: +e.target.value })} /> : <span className="text-[#888]">{child.samplesInInventory}</span>}
                           </td>
                           <td className="px-5 py-3">
-                            {isEditingChild ? <input type="number" className="input w-20" value={draft.samplesInInventory ?? 0} onChange={(e) => setDraft({ ...draft, samplesInInventory: +e.target.value })} /> : <span className="text-[#888]">{child.samplesInInventory}</span>}
+                            {isEditingChild ? <input type="number" className="input w-20" value={draft.unitsInInventory ?? 0} onChange={(e) => setDraft({ ...draft, unitsInInventory: +e.target.value })} /> : <span className="text-[#888]">{child.unitsInInventory}</span>}
                           </td>
                           <td className="px-5 py-3">
                             <div className="flex gap-2 justify-end">
