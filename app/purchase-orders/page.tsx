@@ -127,16 +127,18 @@ export default function PurchaseOrders() {
     return ACCOUNT_MAP[text.toLowerCase().trim()] || text;
   }
 
-  function postToFinancials(entries: { date: string; description: string; amount: number; account: string; bank: string }[]): string[] {
+  // Creates ONE compound transaction in Financials — total matches the bank charge,
+  // lines hold the per-account breakdown so the CSV $927.70 can match the parent.
+  function postToFinancials(
+    main: { date: string; description: string; bank: string },
+    lines: { description: string; amount: number; account: string }[]
+  ): string[] {
     const existing = JSON.parse(localStorage.getItem("pb_financials") || "[]");
-    const ids: string[] = [];
-    const newEntries = entries.map((e) => {
-      const id = `po-${Date.now()}-${Math.random()}`;
-      ids.push(id);
-      return { ...e, id };
-    });
-    localStorage.setItem("pb_financials", JSON.stringify([...existing, ...newEntries]));
-    return ids;
+    const id = `po-${Date.now()}-${Math.random()}`;
+    const total = lines.reduce((sum, l) => sum + l.amount, 0);
+    const entry = { id, date: main.date, description: main.description, amount: total, account: "", bank: main.bank, lines };
+    localStorage.setItem("pb_financials", JSON.stringify([...existing, entry]));
+    return [id];
   }
 
   function removeFromFinancials(ids: string[]) {
@@ -218,14 +220,14 @@ export default function PurchaseOrders() {
     reader.readAsText(file);
   }
 
-  function buildLineEntries(po: PurchaseOrder, date: string, bank: string) {
-    return po.items.map((item) => ({
-      date,
+  function buildLines(po: PurchaseOrder, feeAmt: number, feeAccount: string) {
+    const lines = po.items.map((item) => ({
       description: item.description,
       amount: -(item.qty * item.unitCost),
       account: resolveAccount(item.account),
-      bank,
     }));
+    if (feeAmt > 0) lines.push({ description: "Wire / transfer fee", amount: -feeAmt, account: feeAccount });
+    return lines;
   }
 
   function logManualPayment() {
@@ -236,16 +238,14 @@ export default function PurchaseOrders() {
     const vendor = vendorLabel(po);
     const balance = calcTotal(po.items) - calcPaid(po.payments);
     const isFullPayment = Math.abs(amount - balance) < 0.02;
+    const feeAmt = parseFloat(payFeeAmount) || 0;
 
-    const entries = isFullPayment
-      ? buildLineEntries(po, payDate, payFromBank)
-      : [{ date: payDate, description: `${vendor} — ${poNumber(poIdx)}`, amount: -amount, account: "", bank: payFromBank }];
+    const lines = isFullPayment
+      ? buildLines(po, feeAmt, payFeeAccount)
+      : [{ description: `${vendor} — ${poNumber(poIdx)}`, amount: -(amount + feeAmt), account: "" },
+         ...(feeAmt > 0 ? [{ description: "Wire / transfer fee", amount: -feeAmt, account: payFeeAccount }] : [])];
 
-    const feeAmt = parseFloat(payFeeAmount);
-    if (!isNaN(feeAmt) && feeAmt > 0) {
-      entries.push({ date: payDate, description: `Wire / transfer fee — ${vendor}`, amount: -feeAmt, account: payFeeAccount, bank: payFromBank });
-    }
-    const finTxnIds = postToFinancials(entries);
+    const finTxnIds = postToFinancials({ date: payDate, description: `${vendor} — ${poNumber(poIdx)}`, bank: payFromBank }, lines);
     applyPayment(payPoId, { id: Date.now().toString(), date: payDate, amount, method: "Manual", bankRef: "", finTxnIds });
   }
 
@@ -257,11 +257,11 @@ export default function PurchaseOrders() {
     const balance = calcTotal(po.items) - calcPaid(po.payments);
     const isFullPayment = Math.abs(row.amount - balance) / Math.max(balance, 1) < 0.02;
 
-    const entries = isFullPayment
-      ? buildLineEntries(po, row.date, payFromBank)
-      : [{ date: row.date, description: row.description || `${vendor} — ${poNumber(poIdx)}`, amount: -row.amount, account: "", bank: payFromBank }];
+    const lines = isFullPayment
+      ? buildLines(po, 0, "")
+      : [{ description: row.description || `${vendor} — ${poNumber(poIdx)}`, amount: -row.amount, account: "" }];
 
-    const finTxnIds = postToFinancials(entries);
+    const finTxnIds = postToFinancials({ date: row.date, description: row.description || `${vendor} — ${poNumber(poIdx)}`, bank: payFromBank }, lines);
     applyPayment(payPoId, { id: Date.now().toString(), date: row.date, amount: row.amount, method: "CSV Match", bankRef: row.description, finTxnIds });
   }
 

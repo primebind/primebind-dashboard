@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { Upload, Trash2 } from "lucide-react";
+import { useState, useEffect, useRef, Fragment } from "react";
+import { Upload, Trash2, ChevronRight, ChevronDown } from "lucide-react";
 
 type Account = { number: string; name: string; type: string };
 
@@ -278,6 +278,7 @@ function AccountInput({ value, onChange }: { value: string; onChange: (num: stri
   );
 }
 
+type TransactionLine = { description: string; amount: number; account: string };
 type Transaction = {
   id: string;
   date: string;
@@ -285,6 +286,7 @@ type Transaction = {
   amount: number;
   account: string;
   bank: string;
+  lines?: TransactionLine[];
 };
 
 const ACCOUNT_TYPE_GROUPS = [
@@ -306,6 +308,7 @@ export default function Financials() {
   const [tab, setTab] = useState<"transactions" | "accounts">("transactions");
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [filter, setFilter] = useState("All");
+  const [expandedTxnId, setExpandedTxnId] = useState<string | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem("pb_financials");
@@ -355,15 +358,26 @@ export default function Financials() {
     e.target.value = "";
   }
 
-  const filtered = transactions.filter((t) => matchesFilter(t.account, filter));
+  const filtered = transactions.filter((t) => {
+    if (filter === "All") return true;
+    if (t.lines) return t.lines.some((l) => matchesFilter(l.account, filter));
+    return matchesFilter(t.account, filter);
+  });
   const totalIn = transactions.filter((t) => t.amount > 0).reduce((s, t) => s + t.amount, 0);
   const totalOut = transactions.filter((t) => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0);
   const net = totalIn - totalOut;
 
   const byAccount = Array.from(
     transactions.reduce((map, t) => {
-      const key = t.account || "__unassigned";
-      map.set(key, (map.get(key) || 0) + t.amount);
+      if (t.lines) {
+        t.lines.forEach((l) => {
+          const key = l.account || "__unassigned";
+          map.set(key, (map.get(key) || 0) + l.amount);
+        });
+      } else {
+        const key = t.account || "__unassigned";
+        map.set(key, (map.get(key) || 0) + t.amount);
+      }
       return map;
     }, new Map<string, number>())
   )
@@ -472,27 +486,60 @@ export default function Financials() {
                 <tbody>
                   {filtered
                     .sort((a, b) => b.date.localeCompare(a.date))
-                    .map((t) => (
-                      <tr key={t.id} className="border-b border-[#1a1a1a] hover:bg-[#151515]">
-                        <td className="px-5 py-3 text-[#888] text-xs">{t.date}</td>
-                        <td className="px-5 py-3 text-white max-w-[200px] truncate">{t.description}</td>
-                        <td className={`px-5 py-3 font-medium ${t.amount >= 0 ? "text-green-400" : "text-red-400"}`}>
-                          {t.amount >= 0 ? "+" : ""}${Math.abs(t.amount).toFixed(2)}
-                        </td>
-                        <td className="px-5 py-3 relative">
-                          <AccountInput
-                            value={t.account}
-                            onChange={(num) => updateAccount(t.id, num)}
-                          />
-                        </td>
-                        <td className="px-5 py-3 text-[#555] text-xs">{t.bank}</td>
-                        <td className="px-5 py-3">
-                          <button onClick={() => remove(t.id)} className="text-[#444] hover:text-red-500 transition-colors">
-                            <Trash2 size={14} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                    .map((t) => {
+                      const isExpanded = expandedTxnId === t.id;
+                      const isSplit = !!t.lines?.length;
+                      return (
+                        <Fragment key={t.id}>
+                          <tr
+                            className={`border-b border-[#1a1a1a] hover:bg-[#151515] ${isSplit ? "cursor-pointer" : ""}`}
+                            onClick={isSplit ? () => setExpandedTxnId(isExpanded ? null : t.id) : undefined}
+                          >
+                            <td className="px-5 py-3 text-[#888] text-xs">{t.date}</td>
+                            <td className="px-5 py-3 max-w-[220px]">
+                              <div className="flex items-center gap-2">
+                                {isSplit && (isExpanded ? <ChevronDown size={11} className="text-[#555] shrink-0" /> : <ChevronRight size={11} className="text-[#555] shrink-0" />)}
+                                <span className="text-white truncate">{t.description}</span>
+                                {isSplit && <span className="text-[10px] text-[#555] bg-[#1a1a1a] px-1.5 py-0.5 rounded shrink-0">{t.lines!.length} lines</span>}
+                              </div>
+                            </td>
+                            <td className={`px-5 py-3 font-medium ${t.amount >= 0 ? "text-green-400" : "text-red-400"}`}>
+                              {t.amount >= 0 ? "+" : ""}${Math.abs(t.amount).toFixed(2)}
+                            </td>
+                            <td className="px-5 py-3 relative" onClick={(e) => e.stopPropagation()}>
+                              {isSplit
+                                ? <span className="text-[#333] text-xs italic">— split</span>
+                                : <AccountInput value={t.account} onChange={(num) => updateAccount(t.id, num)} />}
+                            </td>
+                            <td className="px-5 py-3 text-[#555] text-xs">{t.bank}</td>
+                            <td className="px-5 py-3" onClick={(e) => e.stopPropagation()}>
+                              <button onClick={() => remove(t.id)} className="text-[#444] hover:text-red-500 transition-colors">
+                                <Trash2 size={14} />
+                              </button>
+                            </td>
+                          </tr>
+                          {isSplit && isExpanded && (
+                            <tr className="border-b border-[#1a1a1a]">
+                              <td colSpan={6} className="px-10 py-3 bg-[#0d0d0d]">
+                                <div className="space-y-1.5">
+                                  {t.lines!.map((line, i) => (
+                                    <div key={i} className="flex items-center gap-4 text-xs">
+                                      <span className="text-white flex-1">{line.description}</span>
+                                      <span className={`font-medium shrink-0 ${line.amount >= 0 ? "text-green-400" : "text-red-400"}`}>
+                                        ${Math.abs(line.amount).toFixed(2)}
+                                      </span>
+                                      <span className="text-[#555] w-48 text-right shrink-0">
+                                        {CHART.find((a) => a.number === line.account)?.name || line.account || "—"}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
+                      );
+                    })}
                 </tbody>
               </table>
             )}
