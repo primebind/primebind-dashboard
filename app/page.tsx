@@ -157,45 +157,28 @@ export default function Overview() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="bg-[#111] border border-[#222] rounded-xl p-5">
-          <p className="text-[#888] text-xs uppercase tracking-wider mb-3">KS Tiers</p>
-          <div className="space-y-2 text-sm">
-            {[["Early Bird","$39"],["Solo","$45"],["Duo","$83"],["Prime","$159"],["Collector","$229"],["The Archive","$319"]].map(([tier, price]) => (
-              <div key={tier} className="flex justify-between text-[#aaa]">
-                <span>{tier}</span><span className="text-white">{price}</span>
-              </div>
-            ))}
-          </div>
+      {/* Company Info */}
+      <div className="bg-[#111] border border-[#222] rounded-xl p-6">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-[#888]">Company</h2>
+          <a href="https://search.sunbiz.org/Inquiry/CorporationSearch/SearchResultDetail?inquirytype=EntityName&directionType=Initial&searchNameOrder=PRIMEBIND%20L26000048504&aggregateId=flal-l26000048504-6af9ab97-9b7c-4f96-ac5d-cb48f1d1d84e&searchTerm=primebind&listNameOrder=PRIMEBIND%20L26000048504" target="_blank" rel="noopener noreferrer" className="text-xs text-[#555] hover:text-white transition-colors">SunBiz ↗</a>
         </div>
-
-        <div className="bg-[#111] border border-[#222] rounded-xl p-5">
-          <p className="text-[#888] text-xs uppercase tracking-wider mb-3">Colorways</p>
-          <div className="space-y-2 text-sm">
-            {[
-              { name: "Obsidian", color: "#1a1a1a", launch: true },
-              { name: "Pearl", color: "#e8e8e8", launch: true },
-              { name: "Rose", color: "#d4a0a0", launch: true },
-              { name: "Crimson", color: "#8b0000", launch: true },
-              { name: "Jade", color: "#2d5a3d", launch: false },
-              { name: "Abyss", color: "#1a2744", launch: false },
-            ].map((c) => (
-              <div key={c.name} className="flex items-center gap-2 text-[#aaa]">
-                <div className="w-3 h-3 rounded-full border border-[#444]" style={{ background: c.color }} />
-                <span>{c.name}</span>
-                {!c.launch && <span className="text-[#555] text-xs">stretch</span>}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="bg-[#111] border border-[#222] rounded-xl p-5">
-          <p className="text-[#888] text-xs uppercase tracking-wider mb-3">Financials</p>
-          <div className="space-y-2 text-sm text-[#aaa]">
-            <div className="flex justify-between"><span>Break-even</span><span className="text-white">$18,300</span></div>
-            <div className="flex justify-between"><span>KS Goal</span><span className="text-white">$20,000</span></div>
-            <div className="flex justify-between"><span>Target</span><span className="text-white">$30,000</span></div>
-          </div>
+        <div className="grid grid-cols-2 gap-x-12 gap-y-3 sm:grid-cols-4 text-sm">
+          {[
+            ["Legal Name", "PRIMEBIND LLC"],
+            ["Document #", "L26000048504"],
+            ["Effective Date", "01/15/2026"],
+            ["Status", "ACTIVE"],
+            ["State", "FL — Florida LLC"],
+            ["Registered Agent", "Villa, Enrique L"],
+            ["Business Address", "502 Freedom Court"],
+            ["City / ZIP", "Deerfield Beach, FL 33442"],
+          ].map(([label, value]) => (
+            <div key={label}>
+              <p className="text-[#555] text-xs mb-0.5">{label}</p>
+              <p className="text-white font-medium">{value}</p>
+            </div>
+          ))}
         </div>
       </div>
     </div>

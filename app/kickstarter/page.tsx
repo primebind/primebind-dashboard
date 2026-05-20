@@ -100,7 +100,6 @@ function TierRow({ tier, skus, onSave, onDelete }: { tier: Tier; skus: SKU[]; on
       <tr className="border-b border-[#1a1a1a] bg-[#151515]">
         <td className="px-4 py-3">
           <input className="input w-32" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
-          {draft.slots > 0 && <p className="text-yellow-600 text-xs mt-1">{draft.slots} slots</p>}
         </td>
         <td className="px-4 py-3">
           <input type="number" className="input w-20" value={draft.price} onChange={(e) => setDraft({ ...draft, price: +e.target.value })} />
@@ -143,7 +142,6 @@ function TierRow({ tier, skus, onSave, onDelete }: { tier: Tier; skus: SKU[]; on
     <tr className="border-b border-[#1a1a1a] hover:bg-[#151515]">
       <td className="px-4 py-4">
         <p className="text-white font-medium text-sm">{tier.name}</p>
-        {tier.slots > 0 && <p className="text-yellow-600 text-xs mt-0.5">{tier.slots} slots</p>}
       </td>
       <td className="px-4 py-4 text-white font-semibold">${tier.price}</td>
       <td className="px-4 py-4 text-[#888] text-xs">{contentsLabel(tier.contents, skus)}</td>
