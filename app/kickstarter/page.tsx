@@ -3,7 +3,9 @@
 import { useState, useEffect } from "react";
 import { Plus, Trash2, Pencil, Check, X } from "lucide-react";
 
-const KS_FEE = 0.105;
+const DEFAULT_KS_FEE = 0.12;
+const DEFAULT_BLENDED_LOW = 80;
+const DEFAULT_BLENDED_HIGH = 100;
 
 type TierItem = { skuId: string; qty: number };
 type Tier = { id: string; name: string; price: number; contents: TierItem[]; slots: number; note: string };
@@ -59,7 +61,7 @@ function contentsLabel(contents: TierItem[], skus: SKU[]): string {
 }
 
 // ── Tier row ──────────────────────────────────────────────────────────────────
-function TierRow({ tier, skus, onSave, onDelete }: { tier: Tier; skus: SKU[]; onSave: (t: Tier) => void; onDelete: () => void }) {
+function TierRow({ tier, skus, ksFee, onSave, onDelete }: { tier: Tier; skus: SKU[]; ksFee: number; onSave: (t: Tier) => void; onDelete: () => void }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<Tier>(tier);
   const [addSkuId, setAddSkuId] = useState("");
@@ -151,7 +153,7 @@ function TierRow({ tier, skus, onSave, onDelete }: { tier: Tier; skus: SKU[]; on
           <span className="text-green-400 text-sm font-medium">${sv.amt.toFixed(2)} <span className="text-[#555] text-xs">({sv.pct}%)</span></span>
         )}
       </td>
-      <td className="px-4 py-4 text-[#888] text-sm">${(tier.price * (1 - KS_FEE)).toFixed(2)}</td>
+      <td className="px-4 py-4 text-[#888] text-sm">${(tier.price * (1 - ksFee)).toFixed(2)}</td>
       <td className="px-4 py-4 text-[#555] text-xs">{tier.slots > 0 ? tier.slots : "∞"}</td>
       <td className="px-4 py-4">
         <div className="flex gap-2">
@@ -289,6 +291,14 @@ export default function Kickstarter() {
   const [unlockables, setUnlockables] = useState<Unlockable[]>([]);
   const [skus, setSkus] = useState<SKU[]>([]);
   const [colors, setColors] = useState<Color[]>([]);
+  const [ksFee, setKsFee] = useState(DEFAULT_KS_FEE);
+  const [blendedLow, setBlendedLow] = useState(DEFAULT_BLENDED_LOW);
+  const [blendedHigh, setBlendedHigh] = useState(DEFAULT_BLENDED_HIGH);
+  const [editingFee, setEditingFee] = useState(false);
+  const [editingBlended, setEditingBlended] = useState(false);
+  const [feeDraft, setFeeDraft] = useState("");
+  const [blendedLowDraft, setBlendedLowDraft] = useState("");
+  const [blendedHighDraft, setBlendedHighDraft] = useState("");
 
   useEffect(() => {
     const rawSkus = localStorage.getItem("pb_skus");
@@ -296,6 +306,12 @@ export default function Kickstarter() {
 
     const rawColors = localStorage.getItem("pb_colors");
     setColors(rawColors ? JSON.parse(rawColors) : DEFAULT_COLORS);
+
+    const fee = localStorage.getItem("pb_ks_fee");
+    if (fee) setKsFee(parseFloat(fee));
+
+    const blended = localStorage.getItem("pb_ks_blended");
+    if (blended) { const b = JSON.parse(blended); setBlendedLow(b.low); setBlendedHigh(b.high); }
 
     const t = localStorage.getItem("pb_ks_tiers");
     if (t) {
@@ -356,14 +372,80 @@ export default function Kickstarter() {
         {[
           { label: "KS Goal", value: "$20,000" },
           { label: "Break-even", value: "$18,300" },
-          { label: "Blended Avg Pledge", value: "$175–185" },
-          { label: "KS + BackerKit Fees", value: `${(KS_FEE * 100).toFixed(1)}%` },
         ].map((s) => (
           <div key={s.label} className="bg-[#111] border border-[#222] rounded-xl p-5">
             <p className="text-[#888] text-xs uppercase tracking-wider mb-2">{s.label}</p>
             <p className="text-2xl font-bold text-white">{s.value}</p>
           </div>
         ))}
+
+        {/* Blended Avg Pledge — editable */}
+        <div className="bg-[#111] border border-[#222] rounded-xl p-5">
+          <p className="text-[#888] text-xs uppercase tracking-wider mb-2">Blended Avg Pledge</p>
+          {editingBlended ? (
+            <div className="flex items-center gap-1">
+              <span className="text-white text-sm">$</span>
+              <input autoFocus type="number" className="input w-14 text-lg font-bold" value={blendedLowDraft}
+                onChange={(e) => setBlendedLowDraft(e.target.value)} />
+              <span className="text-[#555] text-sm">–</span>
+              <span className="text-white text-sm">$</span>
+              <input type="number" className="input w-14 text-lg font-bold" value={blendedHighDraft}
+                onChange={(e) => setBlendedHighDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    const lo = parseInt(blendedLowDraft) || blendedLow;
+                    const hi = parseInt(blendedHighDraft) || blendedHigh;
+                    setBlendedLow(lo); setBlendedHigh(hi);
+                    localStorage.setItem("pb_ks_blended", JSON.stringify({ low: lo, high: hi }));
+                    setEditingBlended(false);
+                  }
+                  if (e.key === "Escape") setEditingBlended(false);
+                }} />
+              <button onClick={() => {
+                const lo = parseInt(blendedLowDraft) || blendedLow;
+                const hi = parseInt(blendedHighDraft) || blendedHigh;
+                setBlendedLow(lo); setBlendedHigh(hi);
+                localStorage.setItem("pb_ks_blended", JSON.stringify({ low: lo, high: hi }));
+                setEditingBlended(false);
+              }} className="text-green-400 hover:text-green-300 ml-1"><Check size={13} /></button>
+            </div>
+          ) : (
+            <button onClick={() => { setBlendedLowDraft(String(blendedLow)); setBlendedHighDraft(String(blendedHigh)); setEditingBlended(true); }}
+              className="text-2xl font-bold text-white hover:text-[#ccc] transition-colors text-left">
+              ${blendedLow}–${blendedHigh}
+            </button>
+          )}
+        </div>
+
+        {/* KS + BackerKit Fees — editable */}
+        <div className="bg-[#111] border border-[#222] rounded-xl p-5">
+          <p className="text-[#888] text-xs uppercase tracking-wider mb-2">KS + BackerKit Fees</p>
+          {editingFee ? (
+            <div className="flex items-center gap-1">
+              <input autoFocus type="number" step="0.1" min="0" max="100" className="input w-20 text-2xl font-bold"
+                value={feeDraft} onChange={(e) => setFeeDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    const v = parseFloat(feeDraft) / 100;
+                    if (!isNaN(v)) { setKsFee(v); localStorage.setItem("pb_ks_fee", String(v)); }
+                    setEditingFee(false);
+                  }
+                  if (e.key === "Escape") setEditingFee(false);
+                }} />
+              <span className="text-white text-lg font-bold">%</span>
+              <button onClick={() => {
+                const v = parseFloat(feeDraft) / 100;
+                if (!isNaN(v)) { setKsFee(v); localStorage.setItem("pb_ks_fee", String(v)); }
+                setEditingFee(false);
+              }} className="text-green-400 hover:text-green-300 ml-1"><Check size={13} /></button>
+            </div>
+          ) : (
+            <button onClick={() => { setFeeDraft((ksFee * 100).toFixed(1)); setEditingFee(true); }}
+              className="text-2xl font-bold text-white hover:text-[#ccc] transition-colors text-left">
+              {(ksFee * 100).toFixed(1)}%
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Tiers */}
@@ -392,6 +474,7 @@ export default function Kickstarter() {
                   key={t.id}
                   tier={t}
                   skus={skus}
+                  ksFee={ksFee}
                   onSave={(updated) => saveTiers(tiers.map((x) => x.id === updated.id ? updated : x))}
                   onDelete={() => saveTiers(tiers.filter((x) => x.id !== t.id))}
                 />
