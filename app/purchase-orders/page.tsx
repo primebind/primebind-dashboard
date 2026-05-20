@@ -16,7 +16,11 @@ type PurchaseOrder = {
   notes: string;
   payments: Payment[];
 };
-type Vendor = { id: string; name: string; contact: string; email: string; phone: string; notes: string };
+type Vendor = {
+  id: string; name: string; contact: string; email: string; phone: string; notes: string;
+  swift: string; bankAccountNumber: string; bankAccountName: string;
+  bankName: string; bankAddress: string; beneficiaryAddress: string;
+};
 type CsvRow = { date: string; description: string; amount: number; raw: string };
 
 const STATUS_COLORS: Record<POStatus, string> = {
@@ -72,9 +76,10 @@ export default function PurchaseOrders() {
 
   // Vendor edit state
   const [editingVendorId, setEditingVendorId] = useState<string | null>(null);
-  const [vendorDraft, setVendorDraft] = useState<Vendor>({ id: "", name: "", contact: "", email: "", phone: "", notes: "" });
+  const [vendorDraft, setVendorDraft] = useState<Vendor>({ id: "", name: "", contact: "", email: "", phone: "", notes: "", swift: "", bankAccountNumber: "", bankAccountName: "", bankName: "", bankAddress: "", beneficiaryAddress: "" });
   const [showNewVendor, setShowNewVendor] = useState(false);
-  const [vendorForm, setVendorForm] = useState({ name: "", contact: "", email: "", phone: "", notes: "" });
+  const [vendorForm, setVendorForm] = useState({ name: "", contact: "", email: "", phone: "", notes: "", swift: "", bankAccountNumber: "", bankAccountName: "", bankName: "", bankAddress: "", beneficiaryAddress: "" });
+  const [expandedVendorId, setExpandedVendorId] = useState<string | null>(null);
 
   useEffect(() => {
     const savedPos = localStorage.getItem("pb_pos");
@@ -90,7 +95,11 @@ export default function PurchaseOrders() {
       })));
     }
     const savedVendors = localStorage.getItem("pb_vendors");
-    if (savedVendors) setVendors(JSON.parse(savedVendors));
+    if (savedVendors) {
+      const BLANK_BANKING = { swift: "", bankAccountNumber: "", bankAccountName: "", bankName: "", bankAddress: "", beneficiaryAddress: "" };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      setVendors(JSON.parse(savedVendors).map((v: any) => ({ ...BLANK_BANKING, ...v })));
+    }
   }, []);
 
   function savePos(updated: PurchaseOrder[]) { setPos(updated); localStorage.setItem("pb_pos", JSON.stringify(updated)); }
@@ -181,7 +190,7 @@ export default function PurchaseOrders() {
     if (!vendorForm.name.trim()) return;
     const v: Vendor = { id: Date.now().toString(), ...vendorForm };
     saveVendors([...vendors, v]);
-    setVendorForm({ name: "", contact: "", email: "", phone: "", notes: "" });
+    setVendorForm({ name: "", contact: "", email: "", phone: "", notes: "", swift: "", bankAccountNumber: "", bankAccountName: "", bankName: "", bankAddress: "", beneficiaryAddress: "" });
     setShowNewVendor(false);
     if (!newForm.vendorId) setNewForm((f) => ({ ...f, vendorId: v.id }));
   }
@@ -513,15 +522,26 @@ export default function PurchaseOrders() {
       {tab === "vendors" && (
         <div className="space-y-4">
           {showNewVendor && (
-            <div className="bg-[#111] border border-[#222] rounded-xl p-6 space-y-4">
+            <div className="bg-[#111] border border-[#222] rounded-xl p-6 space-y-5">
               <h2 className="text-xs font-semibold text-[#888] uppercase tracking-wider">New Vendor</h2>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {[["name","Name","Dylan"],["contact","Contact","Jason"],["email","Email","vendor@email.com"],["phone","Phone","555-555-5555"],["notes","Notes","Binder manufacturer"]].map(([key, label, placeholder]) => (
+                {[["name","Name","Shanghai Dijin Industrial Co."],["contact","Contact","Jason"],["email","Email",""],["phone","Phone","+86 188 0173 9840"],["notes","Notes","Primary manufacturer"]].map(([key, label, placeholder]) => (
                   <div key={key} className={key === "name" ? "col-span-2 sm:col-span-1" : ""}>
                     <label className="text-xs text-[#888] mb-1 block">{label}</label>
                     <input className="input w-full" placeholder={placeholder} value={(vendorForm as Record<string, string>)[key]} onChange={(e) => setVendorForm({ ...vendorForm, [key]: e.target.value })} />
                   </div>
                 ))}
+              </div>
+              <div>
+                <p className="text-xs text-[#555] uppercase tracking-wider mb-3">Wire / Banking Info</p>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {[["swift","SWIFT / BIC","CHASHKHH"],["bankAccountNumber","Account Number","63007944607"],["bankAccountName","Account Name","Shanghai Dijin Industrial Co., Ltd"],["bankName","Bank Name","JPMorgan Chase Bank N.A., Hong Kong Branch"],["bankAddress","Bank Address","18/F, Chater House, 8 Connaught Rd Central, HK"],["beneficiaryAddress","Beneficiary Address","Room 306, Ascendas Innovation Place, Shanghai"]].map(([key, label, placeholder]) => (
+                    <div key={key} className={["bankName","bankAddress","beneficiaryAddress"].includes(key) ? "col-span-2 sm:col-span-3" : ""}>
+                      <label className="text-xs text-[#888] mb-1 block">{label}</label>
+                      <input className="input w-full" placeholder={placeholder} value={(vendorForm as Record<string, string>)[key]} onChange={(e) => setVendorForm({ ...vendorForm, [key]: e.target.value })} />
+                    </div>
+                  ))}
+                </div>
               </div>
               <div className="flex gap-3">
                 <button onClick={addVendor} className="bg-white text-black text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#e0e0e0]">Add</button>
@@ -537,7 +557,7 @@ export default function PurchaseOrders() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[#222] text-[#555] text-xs uppercase tracking-wider">
-                    {["Name", "Contact", "Email", "Phone", "Notes", ""].map((h) => <th key={h} className="text-left px-5 py-3">{h}</th>)}
+                    {["Name", "Contact", "Email", "Phone", "Notes", "Banking", ""].map((h) => <th key={h} className="text-left px-5 py-3">{h}</th>)}
                   </tr>
                 </thead>
                 <tbody>
@@ -545,26 +565,65 @@ export default function PurchaseOrders() {
                     const isEd = editingVendorId === v.id;
                     const d = isEd ? vendorDraft : v;
                     const poCount = pos.filter((p) => p.vendorId === v.id).length;
+                    const bankExpanded = expandedVendorId === v.id;
+                    const hasBanking = v.swift || v.bankAccountNumber || v.bankName;
                     return (
-                      <tr key={v.id} className="border-b border-[#1a1a1a] hover:bg-[#151515]">
-                        <td className="px-5 py-3">
-                          {isEd ? <input className="input w-32" value={d.name} onChange={(e) => setVendorDraft({ ...vendorDraft, name: e.target.value })} /> : <><span className="text-white font-medium">{v.name}</span>{poCount > 0 && <span className="text-[#555] text-xs ml-2">{poCount} PO{poCount !== 1 ? "s" : ""}</span>}</>}
-                        </td>
-                        {(["contact", "email", "phone", "notes"] as const).map((field) => (
-                          <td key={field} className="px-5 py-3 text-[#888] text-xs">
-                            {isEd ? <input className="input w-full" value={d[field]} onChange={(e) => setVendorDraft({ ...vendorDraft, [field]: e.target.value })} /> : (v[field] || "—")}
+                      <>
+                        <tr key={v.id} className="border-b border-[#1a1a1a] hover:bg-[#151515]">
+                          <td className="px-5 py-3">
+                            {isEd ? <input className="input w-40" value={d.name} onChange={(e) => setVendorDraft({ ...vendorDraft, name: e.target.value })} />
+                              : <><span className="text-white font-medium">{v.name}</span>{poCount > 0 && <span className="text-[#555] text-xs ml-2">{poCount} PO{poCount !== 1 ? "s" : ""}</span>}</>}
                           </td>
-                        ))}
-                        <td className="px-5 py-3">
-                          <div className="flex gap-2">
-                            {isEd ? (
-                              <><button onClick={commitVendorEdit} className="text-green-400 hover:text-green-300"><Check size={13} /></button><button onClick={() => setEditingVendorId(null)} className="text-[#555] hover:text-white"><X size={13} /></button></>
-                            ) : (
-                              <><button onClick={() => { setEditingVendorId(v.id); setVendorDraft({ ...v }); }} className="text-[#444] hover:text-white transition-colors"><Pencil size={13} /></button><button onClick={() => saveVendors(vendors.filter((x) => x.id !== v.id))} className="text-[#444] hover:text-red-500 transition-colors"><Trash2 size={13} /></button></>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
+                          {(["contact", "email", "phone", "notes"] as const).map((field) => (
+                            <td key={field} className="px-5 py-3 text-[#888] text-xs">
+                              {isEd ? <input className="input w-28" value={d[field]} onChange={(e) => setVendorDraft({ ...vendorDraft, [field]: e.target.value })} /> : (v[field] || "—")}
+                            </td>
+                          ))}
+                          <td className="px-5 py-3">
+                            <button onClick={() => setExpandedVendorId(bankExpanded ? null : v.id)}
+                              className={`flex items-center gap-1 text-xs transition-colors ${hasBanking ? "text-[#888] hover:text-white" : "text-[#333] hover:text-[#555]"}`}>
+                              {hasBanking ? "View" : "Add"} {bankExpanded ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+                            </button>
+                          </td>
+                          <td className="px-5 py-3">
+                            <div className="flex gap-2">
+                              {isEd ? (
+                                <><button onClick={commitVendorEdit} className="text-green-400 hover:text-green-300"><Check size={13} /></button><button onClick={() => setEditingVendorId(null)} className="text-[#555] hover:text-white"><X size={13} /></button></>
+                              ) : (
+                                <><button onClick={() => { setEditingVendorId(v.id); setVendorDraft({ ...v }); }} className="text-[#444] hover:text-white transition-colors"><Pencil size={13} /></button><button onClick={() => saveVendors(vendors.filter((x) => x.id !== v.id))} className="text-[#444] hover:text-red-500 transition-colors"><Trash2 size={13} /></button></>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+
+                        {bankExpanded && (
+                          <tr className="border-b border-[#1a1a1a]">
+                            <td colSpan={7} className="px-10 py-4 bg-[#0d0d0d]">
+                              {isEd ? (
+                                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 max-w-2xl">
+                                  {([["swift","SWIFT / BIC"],["bankAccountNumber","Account Number"],["bankAccountName","Account Name"],["bankName","Bank Name"],["bankAddress","Bank Address"],["beneficiaryAddress","Beneficiary Address"]] as const).map(([field, label]) => (
+                                    <div key={field} className={["bankName","bankAddress","beneficiaryAddress"].includes(field) ? "col-span-2 sm:col-span-3" : ""}>
+                                      <label className="text-xs text-[#555] mb-0.5 block">{label}</label>
+                                      <input className="input w-full text-xs" value={vendorDraft[field]} onChange={(e) => setVendorDraft({ ...vendorDraft, [field]: e.target.value })} />
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="grid grid-cols-2 gap-x-8 gap-y-2 sm:grid-cols-3 max-w-2xl text-xs">
+                                  {([["swift","SWIFT / BIC"],["bankAccountNumber","Account Number"],["bankAccountName","Account Name"],["bankName","Bank Name"],["bankAddress","Bank Address"],["beneficiaryAddress","Beneficiary Address"]] as const).map(([field, label]) => (
+                                    v[field] ? (
+                                      <div key={field} className={["bankName","bankAddress","beneficiaryAddress"].includes(field) ? "col-span-2 sm:col-span-3" : ""}>
+                                        <p className="text-[#444] mb-0.5">{label}</p>
+                                        <p className="text-white font-mono">{v[field]}</p>
+                                      </div>
+                                    ) : null
+                                  ))}
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        )}
+                      </>
                     );
                   })}
                 </tbody>
