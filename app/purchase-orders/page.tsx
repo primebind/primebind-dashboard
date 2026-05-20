@@ -110,6 +110,23 @@ export default function PurchaseOrders() {
   function savePos(updated: PurchaseOrder[]) { setPos(updated); localStorage.setItem("pb_pos", JSON.stringify(updated)); }
   function saveVendors(updated: Vendor[]) { setVendors(updated); localStorage.setItem("pb_vendors", JSON.stringify(updated)); }
 
+  // Maps plain-text account names (used in PO line items) to chart-of-accounts numbers
+  const ACCOUNT_MAP: Record<string, string> = {
+    "product design": "73500",
+    "contractor": "72911", "contractors": "72911",
+    "inventory purchases": "72400",
+    "meals & entertainment": "72700", "meals": "72700",
+    "travel - transportation": "74600", "travel": "74600",
+    "freight & shipping": "74101", "shipping": "74101",
+    "entertainment": "72700",
+    "gifts": "74300",
+    "finance charge": "71401",
+    "bank charges & fees": "71400",
+  };
+  function resolveAccount(text: string): string {
+    return ACCOUNT_MAP[text.toLowerCase().trim()] || text;
+  }
+
   function postToFinancials(entries: { date: string; description: string; amount: number; account: string; bank: string }[]): string[] {
     const existing = JSON.parse(localStorage.getItem("pb_financials") || "[]");
     const ids: string[] = [];
@@ -201,15 +218,29 @@ export default function PurchaseOrders() {
     reader.readAsText(file);
   }
 
+  function buildLineEntries(po: PurchaseOrder, date: string, bank: string) {
+    return po.items.map((item) => ({
+      date,
+      description: item.description,
+      amount: -(item.qty * item.unitCost),
+      account: resolveAccount(item.account),
+      bank,
+    }));
+  }
+
   function logManualPayment() {
     const amount = parseFloat(payAmount);
     if (!payPoId || isNaN(amount) || amount <= 0) return;
     const po = pos.find((p) => p.id === payPoId)!;
     const poIdx = pos.indexOf(po);
     const vendor = vendorLabel(po);
-    const entries: { date: string; description: string; amount: number; account: string; bank: string }[] = [
-      { date: payDate, description: `${vendor} — ${poNumber(poIdx)}`, amount: -amount, account: "", bank: payFromBank },
-    ];
+    const balance = calcTotal(po.items) - calcPaid(po.payments);
+    const isFullPayment = Math.abs(amount - balance) < 0.02;
+
+    const entries = isFullPayment
+      ? buildLineEntries(po, payDate, payFromBank)
+      : [{ date: payDate, description: `${vendor} — ${poNumber(poIdx)}`, amount: -amount, account: "", bank: payFromBank }];
+
     const feeAmt = parseFloat(payFeeAmount);
     if (!isNaN(feeAmt) && feeAmt > 0) {
       entries.push({ date: payDate, description: `Wire / transfer fee — ${vendor}`, amount: -feeAmt, account: payFeeAccount, bank: payFromBank });
@@ -223,9 +254,14 @@ export default function PurchaseOrders() {
     const po = pos.find((p) => p.id === payPoId)!;
     const poIdx = pos.indexOf(po);
     const vendor = vendorLabel(po);
-    const finTxnIds = postToFinancials([
-      { date: row.date, description: row.description || `${vendor} — ${poNumber(poIdx)}`, amount: -row.amount, account: "", bank: payFromBank },
-    ]);
+    const balance = calcTotal(po.items) - calcPaid(po.payments);
+    const isFullPayment = Math.abs(row.amount - balance) / Math.max(balance, 1) < 0.02;
+
+    const entries = isFullPayment
+      ? buildLineEntries(po, row.date, payFromBank)
+      : [{ date: row.date, description: row.description || `${vendor} — ${poNumber(poIdx)}`, amount: -row.amount, account: "", bank: payFromBank }];
+
+    const finTxnIds = postToFinancials(entries);
     applyPayment(payPoId, { id: Date.now().toString(), date: row.date, amount: row.amount, method: "CSV Match", bankRef: row.description, finTxnIds });
   }
 
