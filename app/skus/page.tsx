@@ -51,7 +51,8 @@ export default function SKUs() {
     const saved = localStorage.getItem("pb_skus");
     if (saved) {
       const parsed = JSON.parse(saved);
-      setSkus(parsed.map((s: SKU) => ({ retailPrice: 0, ...s })));
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      setSkus(parsed.map((s: any) => ({ ...s, retailPrice: s.retailPrice ?? 0 })));
     } else {
       setSkus(DEFAULT_SKUS);
     }
