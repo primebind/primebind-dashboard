@@ -252,6 +252,10 @@ export default function SKUs() {
                     {isEditing ? (
                       <>
                         <div className="flex flex-wrap gap-3 flex-1">
+                          <div className="flex flex-col gap-0.5">
+                            <label className="text-[10px] text-[#555] whitespace-nowrap">Name</label>
+                            <input className="input w-36" value={draft.name ?? ""} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
+                          </div>
                           {[["unitPrice","Unit Price"],["estShipping","Shipping"],["estDuties","Duties"],["estPackaging","Packaging"],["retailPrice","Retail Price"]].map(([field, label]) => (
                             <div key={field} className="flex flex-col gap-0.5">
                               <label className="text-[10px] text-[#555] whitespace-nowrap">{label}</label>
@@ -307,7 +311,10 @@ export default function SKUs() {
                               <td className="px-5 py-3 pl-10">
                                 <div className="flex items-center gap-2">
                                   <div className="w-3 h-3 rounded-full border border-[#444] shrink-0" style={{ background: child.colorHex }} />
-                                  <span className="text-white text-sm">{child.name}</span>
+                                  {isEditingChild
+                                    ? <input className="input w-28 text-sm" value={draft.name ?? child.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
+                                    : <span className="text-white text-sm">{child.name}</span>
+                                  }
                                 </div>
                               </td>
                               <td className="px-5 py-3">
