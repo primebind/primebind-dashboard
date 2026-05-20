@@ -61,6 +61,8 @@ export default function SKUs() {
   const [showAddColor, setShowAddColor] = useState(false);
   const [addColorForm, setAddColorForm] = useState({ name: "", hex: "" });
 
+  const [onOrderMap, setOnOrderMap] = useState<Record<string, number>>({});
+
   useEffect(() => {
     const savedSkus = localStorage.getItem("pb_skus");
     if (savedSkus) {
@@ -74,6 +76,22 @@ export default function SKUs() {
     const loadedColors: Color[] = savedColors ? JSON.parse(savedColors) : DEFAULT_COLORS;
     setColors(loadedColors);
     if (loadedColors.length) setSelectedColorId(loadedColors[0].id);
+
+    const savedInbounds = localStorage.getItem("pb_inbounds");
+    if (savedInbounds) {
+      const map: Record<string, number> = {};
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      JSON.parse(savedInbounds).forEach((inbound: any) => {
+        if (inbound.status === "Received" || inbound.status === "Cancelled") return;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (inbound.lines || []).forEach((line: any) => {
+          if (!line.colorwayId) return;
+          const outstanding = Math.max(0, (line.qtyOrdered || 0) - (line.qtyReceived || 0));
+          map[line.colorwayId] = (map[line.colorwayId] || 0) + outstanding;
+        });
+      });
+      setOnOrderMap(map);
+    }
   }, []);
 
   function saveSkus(updated: SKU[]) {
@@ -139,6 +157,7 @@ export default function SKUs() {
   const parents = skus.filter((s) => s.parentId === null);
   const totalUnits = skus.filter((s) => s.parentId !== null).reduce((sum, s) => sum + s.unitsInInventory, 0);
   const totalSamples = skus.filter((s) => s.parentId !== null).reduce((sum, s) => sum + s.samplesInInventory, 0);
+  const totalOnOrder = Object.values(onOrderMap).reduce((sum, n) => sum + n, 0);
   const activeColor = colors.find((c) => c.id === selectedColorId);
 
   return (
@@ -177,13 +196,17 @@ export default function SKUs() {
 
       {tab === "products" && (
         <>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-4 gap-4">
             <div className="bg-[#111] border border-[#222] rounded-xl p-5">
-              <p className="text-[#888] text-xs uppercase tracking-wider mb-2">Units in Inventory</p>
+              <p className="text-[#888] text-xs uppercase tracking-wider mb-2">On Hand</p>
               <p className="text-3xl font-bold text-white">{totalUnits.toLocaleString()}</p>
             </div>
             <div className="bg-[#111] border border-[#222] rounded-xl p-5">
-              <p className="text-[#888] text-xs uppercase tracking-wider mb-2">Samples in Inventory</p>
+              <p className="text-[#888] text-xs uppercase tracking-wider mb-2">On Order</p>
+              <p className={`text-3xl font-bold ${totalOnOrder > 0 ? "text-blue-400" : "text-white"}`}>{totalOnOrder.toLocaleString()}</p>
+            </div>
+            <div className="bg-[#111] border border-[#222] rounded-xl p-5">
+              <p className="text-[#888] text-xs uppercase tracking-wider mb-2">Samples</p>
               <p className="text-3xl font-bold text-white">{totalSamples.toLocaleString()}</p>
             </div>
             <div className="bg-[#111] border border-[#222] rounded-xl p-5">
@@ -271,7 +294,8 @@ export default function SKUs() {
                         <tr className="text-[#444] text-xs uppercase tracking-wider border-b border-[#1a1a1a]">
                           <th className="text-left px-5 py-2 pl-10">Colorway</th>
                           <th className="text-left px-5 py-2">Samples</th>
-                          <th className="text-left px-5 py-2">Units in Inventory</th>
+                          <th className="text-left px-5 py-2">On Order</th>
+                          <th className="text-left px-5 py-2">On Hand</th>
                           <th className="px-5 py-2" />
                         </tr>
                       </thead>
@@ -288,6 +312,9 @@ export default function SKUs() {
                               </td>
                               <td className="px-5 py-3">
                                 {isEditingChild ? <input type="number" className="input w-20" value={draft.samplesInInventory ?? 0} onChange={(e) => setDraft({ ...draft, samplesInInventory: +e.target.value })} /> : <span className="text-[#888]">{child.samplesInInventory}</span>}
+                              </td>
+                              <td className="px-5 py-3">
+                                {(() => { const qty = onOrderMap[child.id] || 0; return qty > 0 ? <span className="text-blue-400 font-medium">{qty}</span> : <span className="text-[#333]">—</span>; })()}
                               </td>
                               <td className="px-5 py-3">
                                 {isEditingChild ? <input type="number" className="input w-20" value={draft.unitsInInventory ?? 0} onChange={(e) => setDraft({ ...draft, unitsInInventory: +e.target.value })} /> : <span className="text-[#888]">{child.unitsInInventory}</span>}
