@@ -77,7 +77,7 @@ export default function PurchaseOrders() {
   const [csvMatches, setCsvMatches] = useState<CsvRow[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const BANK_ACCOUNTS = ["US Bank", "Chase", "Wise", "Other"];
+  const BANK_ACCOUNTS = ["US Bank", "Wise", "Other"];
 
   // Vendor edit state
   const [editingVendorId, setEditingVendorId] = useState<string | null>(null);
