@@ -307,7 +307,7 @@ const ACCOUNT_TYPE_GROUPS = [
 ];
 
 export default function Financials() {
-  const [tab, setTab] = useState<"transactions" | "accounts">("transactions");
+  const [tab, setTab] = useState<"transactions" | "unmatched" | "accounts">("transactions");
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [filter, setFilter] = useState("All");
   const [expandedTxnId, setExpandedTxnId] = useState<string | null>(null);
@@ -348,7 +348,15 @@ export default function Financials() {
   }
 
   function matchToPO(txnId: string, po: PoSummary) {
-    save(transactions.map((t) => t.id === txnId ? { ...t, matchedPoId: po.id, account: "" } : t));
+    // collect finTxnIds from the PO's payment records so we can remove the old posted entry
+    const savedPos: { id: string; payments: { finTxnIds?: string[] }[] }[] = JSON.parse(localStorage.getItem("pb_pos") || "[]");
+    const poRecord = savedPos.find((p) => p.id === po.id);
+    const finIdsToRemove = (poRecord?.payments ?? []).flatMap((pay) => pay.finTxnIds ?? []);
+
+    const updated = transactions
+      .filter((t) => !finIdsToRemove.includes(t.id))
+      .map((t) => t.id === txnId ? { ...t, matchedPoId: po.id, account: "" } : t);
+    save(updated);
     setMatchingTxnId(null);
   }
 
@@ -427,15 +435,19 @@ export default function Financials() {
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-[#222]">
-        {(["transactions", "accounts"] as const).map((t) => (
+        {([
+          { key: "transactions", label: "Transactions" },
+          { key: "unmatched", label: `Unmatched POs${poList.filter((po) => !transactions.some((t) => t.matchedPoId === po.id)).length > 0 ? ` (${poList.filter((po) => !transactions.some((t) => t.matchedPoId === po.id)).length})` : ""}` },
+          { key: "accounts", label: "Chart of Accounts" },
+        ] as const).map(({ key, label }) => (
           <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`px-4 py-2 text-sm font-medium capitalize transition-colors border-b-2 -mb-px ${
-              tab === t ? "border-white text-white" : "border-transparent text-[#555] hover:text-[#888]"
+            key={key}
+            onClick={() => setTab(key)}
+            className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+              tab === key ? "border-white text-white" : "border-transparent text-[#555] hover:text-[#888]"
             }`}
           >
-            {t === "accounts" ? "Chart of Accounts" : "Transactions"}
+            {label}
           </button>
         ))}
       </div>
@@ -642,6 +654,48 @@ export default function Financials() {
           </div>
         </>
       )}
+
+      {tab === "unmatched" && (() => {
+        const unmatched = poList.filter((po) => !transactions.some((t) => t.matchedPoId === po.id));
+        return (
+          <div className="bg-[#111] border border-[#222] rounded-xl overflow-hidden">
+            {unmatched.length === 0 ? (
+              <div className="text-center py-16 text-[#555] text-sm">All POs have been matched.</div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-[#222] text-[#555] text-xs uppercase tracking-wider">
+                    {["PO #", "Vendor", "Total", "Balance", "Items"].map((h) => (
+                      <th key={h} className="text-left px-5 py-3">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {unmatched.map((po) => (
+                    <tr key={po.id} className="border-b border-[#1a1a1a] hover:bg-[#151515]">
+                      <td className="px-5 py-3 text-purple-400 font-mono text-xs">{po.poNum}</td>
+                      <td className="px-5 py-3 text-white font-medium">{po.vendorName}</td>
+                      <td className="px-5 py-3 text-white">${po.total.toLocaleString()}</td>
+                      <td className="px-5 py-3">
+                        <span className={po.balance > 0 ? "text-red-400" : "text-[#555]"}>
+                          {po.balance > 0 ? `$${po.balance.toLocaleString()}` : "Settled"}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3">
+                        <div className="space-y-0.5">
+                          {po.items.map((item, i) => (
+                            <p key={i} className="text-xs text-[#555]">{item.description} · {item.qty} × ${item.unitCost.toLocaleString()}</p>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        );
+      })()}
 
       {tab === "accounts" && (
         <div className="space-y-6">
