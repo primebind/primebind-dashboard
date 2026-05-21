@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Pencil, Check, X, RefreshCw } from "lucide-react";
 
-type Subscriber = { id: number; email: string; name: string; state: string; subscribedAt: string };
+type Subscriber = { id: number; email: string; subscribedAt: string };
 type KitData = { subscribers: number; goal: number; lastSynced: string | null };
 
 const DEFAULT: KitData = { subscribers: 0, goal: 1000, lastSynced: null };
@@ -194,8 +194,6 @@ export default function KitPage() {
             <thead>
               <tr className="border-b border-[#222] text-[#555] text-xs uppercase tracking-wider">
                 <th className="text-left px-5 py-3">Email</th>
-                <th className="text-left px-5 py-3">Name</th>
-                <th className="text-left px-5 py-3">Status</th>
                 <th className="text-left px-5 py-3">Subscribed</th>
               </tr>
             </thead>
@@ -203,12 +201,6 @@ export default function KitPage() {
               {rows.map((s) => (
                 <tr key={s.id} className="border-b border-[#1a1a1a] hover:bg-[#151515]">
                   <td className="px-5 py-3 text-white">{s.email}</td>
-                  <td className="px-5 py-3 text-[#888]">{s.name || "—"}</td>
-                  <td className="px-5 py-3">
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${s.state === "active" ? "bg-green-950 text-green-400" : "bg-[#222] text-[#555]"}`}>
-                      {s.state}
-                    </span>
-                  </td>
                   <td className="px-5 py-3 text-[#555]">
                     {new Date(s.subscribedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                   </td>
