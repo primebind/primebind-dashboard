@@ -31,7 +31,15 @@ export default function KitPage() {
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState("");
 
-  useEffect(() => { setData(load()); }, []);
+  useEffect(() => {
+    const saved = load();
+    setData(saved);
+    const savedRows = localStorage.getItem("pb_kit_subscribers");
+    if (savedRows) setRows(JSON.parse(savedRows));
+    // auto-sync on mount
+    doSync(saved);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function update(next: KitData) { setData(next); persist(next); }
 
@@ -47,7 +55,7 @@ export default function KitPage() {
     setEditingGoal(false);
   }
 
-  async function syncFromKit() {
+  async function doSync(current: KitData) {
     setSyncing(true);
     setSyncError("");
     try {
@@ -58,8 +66,11 @@ export default function KitPage() {
         return;
       }
       const { total, subscribers } = await res.json();
-      update({ ...data, subscribers: total, lastSynced: new Date().toISOString() });
-      setRows(subscribers ?? []);
+      const next = { ...current, subscribers: total, lastSynced: new Date().toISOString() };
+      update(next);
+      const list = subscribers ?? [];
+      setRows(list);
+      localStorage.setItem("pb_kit_subscribers", JSON.stringify(list));
     } catch {
       setSyncError("Network error — try again.");
     } finally {
@@ -85,7 +96,7 @@ export default function KitPage() {
           </p>
         </div>
         <button
-          onClick={syncFromKit}
+          onClick={() => doSync(data)}
           disabled={syncing}
           className="flex items-center gap-2 bg-white text-black text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#e0e0e0] transition-colors disabled:opacity-50"
         >

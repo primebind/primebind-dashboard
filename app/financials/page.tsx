@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, Fragment } from "react";
-import { Upload, Trash2, ChevronRight, ChevronDown } from "lucide-react";
+import { Upload, Trash2, ChevronRight, ChevronDown, Link, Unlink } from "lucide-react";
 
 type Account = { number: string; name: string; type: string };
 
@@ -287,7 +287,9 @@ type Transaction = {
   account: string;
   bank: string;
   lines?: TransactionLine[];
+  matchedPoId?: string;
 };
+type PoSummary = { id: string; poNum: string; vendorName: string; total: number; balance: number };
 
 const ACCOUNT_TYPE_GROUPS = [
   "Accounts Receivable",
@@ -309,8 +311,20 @@ export default function Financials() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [filter, setFilter] = useState("All");
   const [expandedTxnId, setExpandedTxnId] = useState<string | null>(null);
+  const [matchingTxnId, setMatchingTxnId] = useState<string | null>(null);
+  const [poList, setPoList] = useState<PoSummary[]>([]);
 
   useEffect(() => {
+    const savedPos = localStorage.getItem("pb_pos");
+    if (savedPos) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const parsed: any[] = JSON.parse(savedPos);
+      setPoList(parsed.map((p, idx) => {
+        const total = (p.items || []).reduce((s: number, i: { qty: number; unitCost: number }) => s + i.qty * i.unitCost, 0);
+        const paid = (p.payments || []).reduce((s: number, pay: { amount: number }) => s + pay.amount, 0);
+        return { id: p.id, poNum: `PO-${String(idx + 1).padStart(3, "0")}`, vendorName: p.vendorName || "—", total, balance: total - paid };
+      }));
+    }
     const saved = localStorage.getItem("pb_financials");
     if (saved) {
       const parsed = JSON.parse(saved);
@@ -331,6 +345,15 @@ export default function Financials() {
 
   function updateAccount(id: string, account: string) {
     save(transactions.map((t) => (t.id === id ? { ...t, account } : t)));
+  }
+
+  function matchToPO(txnId: string, po: PoSummary) {
+    save(transactions.map((t) => t.id === txnId ? { ...t, matchedPoId: po.id, account: "" } : t));
+    setMatchingTxnId(null);
+  }
+
+  function unmatchPO(txnId: string) {
+    save(transactions.map((t) => t.id === txnId ? { ...t, matchedPoId: undefined } : t));
   }
 
   function handleCSV(e: React.ChangeEvent<HTMLInputElement>) {
@@ -507,9 +530,28 @@ export default function Financials() {
                               {t.amount >= 0 ? "+" : ""}${Math.abs(t.amount).toFixed(2)}
                             </td>
                             <td className="px-5 py-3 relative" onClick={(e) => e.stopPropagation()}>
-                              {isSplit
-                                ? <span className="text-[#333] text-xs italic">— split</span>
-                                : <AccountInput value={t.account} onChange={(num) => updateAccount(t.id, num)} />}
+                              {t.matchedPoId ? (
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-xs bg-purple-950 text-purple-400 px-2 py-0.5 rounded-full font-medium">
+                                    {poList.find((p) => p.id === t.matchedPoId)?.poNum ?? "PO"} · {poList.find((p) => p.id === t.matchedPoId)?.vendorName ?? "—"}
+                                  </span>
+                                  <button onClick={() => unmatchPO(t.id)} className="text-[#444] hover:text-[#888]"><Unlink size={11} /></button>
+                                </div>
+                              ) : isSplit ? (
+                                <span className="text-[#333] text-xs italic">— split</span>
+                              ) : (
+                                <div className="flex items-center gap-2">
+                                  <AccountInput value={t.account} onChange={(num) => updateAccount(t.id, num)} />
+                                  {poList.length > 0 && (
+                                    <button
+                                      onClick={() => setMatchingTxnId(matchingTxnId === t.id ? null : t.id)}
+                                      className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded transition-colors ${matchingTxnId === t.id ? "bg-purple-950 text-purple-400" : "text-[#444] hover:text-[#888]"}`}
+                                    >
+                                      <Link size={10} /> PO
+                                    </button>
+                                  )}
+                                </div>
+                              )}
                             </td>
                             <td className="px-5 py-3 text-[#555] text-xs">{t.bank}</td>
                             <td className="px-5 py-3" onClick={(e) => e.stopPropagation()}>
@@ -534,6 +576,33 @@ export default function Financials() {
                                     </div>
                                   ))}
                                 </div>
+                              </td>
+                            </tr>
+                          )}
+
+                          {matchingTxnId === t.id && (
+                            <tr className="border-b border-[#1a1a1a]">
+                              <td colSpan={6} className="px-10 py-3 bg-[#0a0a0a]">
+                                <p className="text-[10px] text-[#555] uppercase tracking-wider mb-2">Match to Purchase Order</p>
+                                {(() => {
+                                  const close = poList.filter((p) => Math.abs(p.total - Math.abs(t.amount)) / Math.max(Math.abs(t.amount), 1) <= 0.1);
+                                  const display = close.length > 0 ? close : poList;
+                                  return (
+                                    <div className="space-y-1 max-h-40 overflow-y-auto">
+                                      {display.map((po) => (
+                                        <div key={po.id} className="flex items-center gap-3 text-xs bg-[#111] border border-[#1a1a1a] rounded-lg px-3 py-2 hover:border-[#333]">
+                                          <span className="text-purple-400 font-mono shrink-0">{po.poNum}</span>
+                                          <span className="text-white flex-1 truncate">{po.vendorName}</span>
+                                          <span className="text-[#555] shrink-0">${po.total.toLocaleString()}</span>
+                                          {po.balance > 0 && <span className="text-red-400 text-[10px] shrink-0">bal ${po.balance.toLocaleString()}</span>}
+                                          <button onClick={() => matchToPO(t.id, po)} className="bg-white text-black text-[10px] px-2 py-0.5 rounded font-medium hover:bg-[#e0e0e0] shrink-0">
+                                            Match
+                                          </button>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  );
+                                })()}
                               </td>
                             </tr>
                           )}
