@@ -289,7 +289,7 @@ type Transaction = {
   lines?: TransactionLine[];
   matchedPoId?: string;
 };
-type PoSummary = { id: string; poNum: string; vendorName: string; total: number; balance: number };
+type PoSummary = { id: string; poNum: string; vendorName: string; total: number; balance: number; items: { description: string; qty: number; unitCost: number; account: string }[] };
 
 const ACCOUNT_TYPE_GROUPS = [
   "Accounts Receivable",
@@ -322,7 +322,7 @@ export default function Financials() {
       setPoList(parsed.map((p, idx) => {
         const total = (p.items || []).reduce((s: number, i: { qty: number; unitCost: number }) => s + i.qty * i.unitCost, 0);
         const paid = (p.payments || []).reduce((s: number, pay: { amount: number }) => s + pay.amount, 0);
-        return { id: p.id, poNum: `PO-${String(idx + 1).padStart(3, "0")}`, vendorName: p.vendorName || "—", total, balance: total - paid };
+        return { id: p.id, poNum: `PO-${String(idx + 1).padStart(3, "0")}`, vendorName: p.vendorName || "—", total, balance: total - paid, items: p.items || [] };
       }));
     }
     const saved = localStorage.getItem("pb_financials");
@@ -512,18 +512,21 @@ export default function Financials() {
                     .map((t) => {
                       const isExpanded = expandedTxnId === t.id;
                       const isSplit = !!t.lines?.length;
+                      const matchedPo = t.matchedPoId ? poList.find((p) => p.id === t.matchedPoId) : undefined;
+                      const isExpandable = isSplit || !!matchedPo;
                       return (
                         <Fragment key={t.id}>
                           <tr
-                            className={`border-b border-[#1a1a1a] hover:bg-[#151515] ${isSplit ? "cursor-pointer" : ""}`}
-                            onClick={isSplit ? () => setExpandedTxnId(isExpanded ? null : t.id) : undefined}
+                            className={`border-b border-[#1a1a1a] hover:bg-[#151515] ${isExpandable ? "cursor-pointer" : ""}`}
+                            onClick={isExpandable ? () => setExpandedTxnId(isExpanded ? null : t.id) : undefined}
                           >
                             <td className="px-5 py-3 text-[#888] text-xs">{t.date}</td>
                             <td className="px-5 py-3 max-w-[220px]">
                               <div className="flex items-center gap-2">
-                                {isSplit && (isExpanded ? <ChevronDown size={11} className="text-[#555] shrink-0" /> : <ChevronRight size={11} className="text-[#555] shrink-0" />)}
+                                {isExpandable && (isExpanded ? <ChevronDown size={11} className="text-[#555] shrink-0" /> : <ChevronRight size={11} className="text-[#555] shrink-0" />)}
                                 <span className="text-white truncate">{t.description}</span>
                                 {isSplit && <span className="text-[10px] text-[#555] bg-[#1a1a1a] px-1.5 py-0.5 rounded shrink-0">{t.lines!.length} lines</span>}
+                                {matchedPo && <span className="text-[10px] text-purple-400 bg-purple-950 px-1.5 py-0.5 rounded shrink-0">{matchedPo.items.length} lines</span>}
                               </div>
                             </td>
                             <td className={`px-5 py-3 font-medium ${t.amount >= 0 ? "text-green-400" : "text-red-400"}`}>
@@ -575,6 +578,30 @@ export default function Financials() {
                                       </span>
                                     </div>
                                   ))}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+
+                          {matchedPo && isExpanded && (
+                            <tr className="border-b border-[#1a1a1a]">
+                              <td colSpan={6} className="px-10 py-3 bg-[#0d0d0d]">
+                                <p className="text-[10px] text-purple-400 uppercase tracking-wider mb-2">{matchedPo.poNum} · {matchedPo.vendorName}</p>
+                                <div className="space-y-1.5">
+                                  {matchedPo.items.map((item, i) => (
+                                    <div key={i} className="flex items-center gap-4 text-xs">
+                                      <span className="text-white flex-1">{item.description}</span>
+                                      <span className="text-[#555] shrink-0">{item.qty} × ${item.unitCost.toLocaleString()}</span>
+                                      <span className="text-red-400 font-medium shrink-0">${(item.qty * item.unitCost).toLocaleString()}</span>
+                                      <span className="text-[#555] w-48 text-right shrink-0">
+                                        {CHART.find((a) => a.number === item.account)?.name || item.account || "—"}
+                                      </span>
+                                    </div>
+                                  ))}
+                                  <div className="flex justify-end pt-1.5 border-t border-[#1a1a1a] text-xs">
+                                    <span className="text-[#555] mr-3">Total</span>
+                                    <span className="text-white font-medium">${matchedPo.total.toLocaleString()}</span>
+                                  </div>
                                 </div>
                               </td>
                             </tr>
