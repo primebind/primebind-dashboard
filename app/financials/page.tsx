@@ -389,13 +389,29 @@ export default function Financials() {
     e.target.value = "";
   }
 
+  // For matched-PO transactions, derive line breakdown from PO items (negative = expense)
+  function poLines(matchedPoId: string) {
+    const po = poList.find((p) => p.id === matchedPoId);
+    if (!po) return [];
+    return po.items.map((item) => ({
+      account: item.account || "__unassigned",
+      amount: -(item.qty * item.unitCost),
+    }));
+  }
+
   const filtered = transactions.filter((t) => {
     if (filter === "All") return true;
     if (t.lines) return t.lines.some((l) => matchesFilter(l.account, filter));
+    if (t.matchedPoId) return poLines(t.matchedPoId).some((l) => matchesFilter(l.account, filter));
     return matchesFilter(t.account, filter);
   });
-  const totalIn = transactions.filter((t) => t.amount > 0).reduce((s, t) => s + t.amount, 0);
-  const totalOut = transactions.filter((t) => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0);
+
+  const totalIn = transactions.filter((t) => t.amount > 0 && !t.matchedPoId).reduce((s, t) => s + t.amount, 0);
+  const totalOut = transactions.reduce((s, t) => {
+    if (t.matchedPoId) return s + poLines(t.matchedPoId).reduce((ps, l) => ps + Math.abs(l.amount), 0);
+    if (t.amount < 0) return s + Math.abs(t.amount);
+    return s;
+  }, 0);
   const net = totalIn - totalOut;
 
   const byAccount = Array.from(
@@ -404,6 +420,10 @@ export default function Financials() {
         t.lines.forEach((l) => {
           const key = l.account || "__unassigned";
           map.set(key, (map.get(key) || 0) + l.amount);
+        });
+      } else if (t.matchedPoId) {
+        poLines(t.matchedPoId).forEach((l) => {
+          map.set(l.account, (map.get(l.account) || 0) + l.amount);
         });
       } else {
         const key = t.account || "__unassigned";
