@@ -389,12 +389,26 @@ export default function Financials() {
     e.target.value = "";
   }
 
+  // Resolve plain-text account names (as entered in PO items) to chart-of-accounts numbers
+  const ACCOUNT_MAP: Record<string, string> = {
+    "product design": "73500", "contractor": "72911", "contractors": "72911",
+    "inventory purchases": "72400", "meals & entertainment": "72700", "meals": "72700",
+    "travel - transportation": "74600", "travel": "74600",
+    "freight & shipping": "74101", "shipping": "74101",
+    "finance charge": "71401", "bank charges & fees": "71400",
+    "gifts": "74300", "entertainment": "72700",
+  };
+  function resolveAccount(text: string): string {
+    if (!text) return "__unassigned";
+    return ACCOUNT_MAP[text.toLowerCase().trim()] || text;
+  }
+
   // For matched-PO transactions, derive line breakdown from PO items (negative = expense)
   function poLines(matchedPoId: string) {
     const po = poList.find((p) => p.id === matchedPoId);
     if (!po) return [];
     return po.items.map((item) => ({
-      account: item.account || "__unassigned",
+      account: resolveAccount(item.account),
       amount: -(item.qty * item.unitCost),
     }));
   }
@@ -644,16 +658,18 @@ export default function Financials() {
                               <td colSpan={6} className="px-10 py-3 bg-[#0a0a0a]">
                                 <p className="text-[10px] text-[#555] uppercase tracking-wider mb-2">Match to Purchase Order</p>
                                 {(() => {
-                                  const close = poList.filter((p) => Math.abs(p.total - Math.abs(t.amount)) / Math.max(Math.abs(t.amount), 1) <= 0.1);
-                                  const display = close.length > 0 ? close : poList;
+                                  const txnAmt = Math.abs(t.amount);
+                                  const matching = poList.filter((p) => Math.abs(p.total - txnAmt) / Math.max(txnAmt, 1) <= 0.02);
+                                  if (matching.length === 0) return (
+                                    <p className="text-xs text-yellow-600">No POs match ${txnAmt.toLocaleString()} (within 2%). Check amounts on the PO.</p>
+                                  );
                                   return (
                                     <div className="space-y-1 max-h-40 overflow-y-auto">
-                                      {display.map((po) => (
+                                      {matching.map((po) => (
                                         <div key={po.id} className="flex items-center gap-3 text-xs bg-[#111] border border-[#1a1a1a] rounded-lg px-3 py-2 hover:border-[#333]">
                                           <span className="text-purple-400 font-mono shrink-0">{po.poNum}</span>
                                           <span className="text-white flex-1 truncate">{po.vendorName}</span>
                                           <span className="text-[#555] shrink-0">${po.total.toLocaleString()}</span>
-                                          {po.balance > 0 && <span className="text-red-400 text-[10px] shrink-0">bal ${po.balance.toLocaleString()}</span>}
                                           <button onClick={() => matchToPO(t.id, po)} className="bg-white text-black text-[10px] px-2 py-0.5 rounded font-medium hover:bg-[#e0e0e0] shrink-0">
                                             Match
                                           </button>
