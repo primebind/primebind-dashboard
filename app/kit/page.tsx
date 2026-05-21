@@ -1,14 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Pencil, Check, X } from "lucide-react";
+import { Pencil, Check, X, RefreshCw } from "lucide-react";
 
-type KitData = {
-  subscribers: number;
-  goal: number;
-};
+type KitData = { subscribers: number; goal: number; lastSynced: string | null };
 
-const DEFAULT: KitData = { subscribers: 0, goal: 1000 };
+const DEFAULT: KitData = { subscribers: 0, goal: 1000, lastSynced: null };
 
 function load(): KitData {
   try {
@@ -19,7 +16,7 @@ function load(): KitData {
   }
 }
 
-function save(data: KitData) {
+function persist(data: KitData) {
   localStorage.setItem("pb_kit", JSON.stringify(data));
 }
 
@@ -29,15 +26,12 @@ export default function KitPage() {
   const [editingGoal, setEditingGoal] = useState(false);
   const [subDraft, setSubDraft] = useState("");
   const [goalDraft, setGoalDraft] = useState("");
+  const [syncing, setSyncing] = useState(false);
+  const [syncError, setSyncError] = useState("");
 
-  useEffect(() => {
-    setData(load());
-  }, []);
+  useEffect(() => { setData(load()); }, []);
 
-  function update(next: KitData) {
-    setData(next);
-    save(next);
-  }
+  function update(next: KitData) { setData(next); persist(next); }
 
   function commitSubscribers() {
     const val = parseInt(subDraft, 10);
@@ -51,20 +45,62 @@ export default function KitPage() {
     setEditingGoal(false);
   }
 
+  async function syncFromKit() {
+    setSyncing(true);
+    setSyncError("");
+    try {
+      const res = await fetch("/api/kit");
+      if (!res.ok) {
+        const err = await res.json();
+        setSyncError(err.error === "KIT_API_SECRET not set" ? "Add KIT_API_SECRET to Vercel env vars to enable sync." : "Kit API error — check your key.");
+        return;
+      }
+      const { total } = await res.json();
+      update({ ...data, subscribers: total, lastSynced: new Date().toISOString() });
+    } catch {
+      setSyncError("Network error — try again.");
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   const remaining = Math.max(0, data.goal - data.subscribers);
   const pct = data.goal > 0 ? Math.min(100, Math.round((data.subscribers / data.goal) * 100)) : 0;
 
   return (
-    <div className="p-8 max-w-2xl">
-      <h1 className="text-white font-semibold text-xl mb-1">Kit Subscribers</h1>
-      <p className="text-[#555] text-sm mb-8">Email list tracker</p>
+    <div className="max-w-6xl mx-auto space-y-8">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Kit Subscribers</h1>
+          <p className="text-[#888] text-sm mt-1">
+            Email list tracker
+            {data.lastSynced && (
+              <span className="ml-2 text-[#555]">
+                · Last synced {new Date(data.lastSynced).toLocaleString()}
+              </span>
+            )}
+          </p>
+        </div>
+        <button
+          onClick={syncFromKit}
+          disabled={syncing}
+          className="flex items-center gap-2 bg-white text-black text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#e0e0e0] transition-colors disabled:opacity-50"
+        >
+          <RefreshCw size={14} className={syncing ? "animate-spin" : ""} />
+          {syncing ? "Syncing…" : "Sync from Kit"}
+        </button>
+      </div>
 
-      <div className="grid grid-cols-2 gap-4 mb-6">
+      {syncError && (
+        <p className="text-sm text-red-400 bg-red-950 border border-red-900 rounded-lg px-4 py-3">{syncError}</p>
+      )}
+
+      <div className="grid grid-cols-3 gap-4">
         {/* Subscribers */}
-        <div className="bg-[#111] border border-[#222] rounded-lg p-5">
-          <p className="text-xs text-[#555] uppercase tracking-widest mb-3">Current Subscribers</p>
+        <div className="bg-[#111] border border-[#222] rounded-xl p-5">
+          <p className="text-[#888] text-xs uppercase tracking-wider mb-2">Current Subscribers</p>
           {editingSubscribers ? (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 mt-1">
               <input
                 autoFocus
                 type="number"
@@ -82,7 +118,7 @@ export default function KitPage() {
             </div>
           ) : (
             <div className="flex items-end justify-between">
-              <span className="text-white text-3xl font-bold">{data.subscribers.toLocaleString()}</span>
+              <p className="text-2xl font-bold text-white">{data.subscribers.toLocaleString()}</p>
               <button
                 onClick={() => { setSubDraft(String(data.subscribers)); setEditingSubscribers(true); }}
                 className="text-[#555] hover:text-[#888] mb-1"
@@ -94,10 +130,10 @@ export default function KitPage() {
         </div>
 
         {/* Goal */}
-        <div className="bg-[#111] border border-[#222] rounded-lg p-5">
-          <p className="text-xs text-[#555] uppercase tracking-widest mb-3">Goal</p>
+        <div className="bg-[#111] border border-[#222] rounded-xl p-5">
+          <p className="text-[#888] text-xs uppercase tracking-wider mb-2">Goal</p>
           {editingGoal ? (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 mt-1">
               <input
                 autoFocus
                 type="number"
@@ -115,7 +151,7 @@ export default function KitPage() {
             </div>
           ) : (
             <div className="flex items-end justify-between">
-              <span className="text-white text-3xl font-bold">{data.goal.toLocaleString()}</span>
+              <p className="text-2xl font-bold text-white">{data.goal.toLocaleString()}</p>
               <button
                 onClick={() => { setGoalDraft(String(data.goal)); setEditingGoal(true); }}
                 className="text-[#555] hover:text-[#888] mb-1"
@@ -125,22 +161,32 @@ export default function KitPage() {
             </div>
           )}
         </div>
+
+        {/* Remaining */}
+        <div className="bg-[#111] border border-[#222] rounded-xl p-5">
+          <p className="text-[#888] text-xs uppercase tracking-wider mb-2">Remaining to Goal</p>
+          <p className="text-2xl font-bold text-white">
+            {remaining === 0 ? "Goal reached!" : remaining.toLocaleString()}
+          </p>
+          {remaining > 0 && <p className="text-[#555] text-xs mt-1">to go</p>}
+        </div>
       </div>
 
-      {/* Remaining */}
-      <div className="bg-[#111] border border-[#222] rounded-lg p-5">
-        <div className="flex items-center justify-between mb-4">
-          <p className="text-xs text-[#555] uppercase tracking-widest">Remaining to Goal</p>
-          <span className="text-xs text-[#555]">{pct}%</span>
+      {/* Progress bar */}
+      <div className="bg-[#111] border border-[#222] rounded-xl p-5">
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-[#888] text-xs uppercase tracking-wider">Progress</p>
+          <span className="text-[#555] text-xs">{pct}%</span>
         </div>
-        <p className="text-white text-3xl font-bold mb-5">
-          {remaining === 0 ? "Goal reached!" : `${remaining.toLocaleString()} to go`}
-        </p>
         <div className="w-full bg-[#222] rounded-full h-2">
           <div
             className="h-2 rounded-full bg-white transition-all duration-500"
             style={{ width: `${pct}%` }}
           />
+        </div>
+        <div className="flex justify-between mt-2 text-xs text-[#555]">
+          <span>0</span>
+          <span>{data.goal.toLocaleString()}</span>
         </div>
       </div>
     </div>
