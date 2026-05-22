@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect, useCallback, useRef } from "react";
-import { LayoutDashboard, Users, BarChart2, Package, DollarSign, Rocket, ClipboardList, Inbox, Bell, ChevronDown, CloudUpload, CloudDownload, Mail } from "lucide-react";
+import { LayoutDashboard, Users, BarChart2, Package, DollarSign, Rocket, ClipboardList, Inbox, Bell, ChevronDown, CloudUpload, CloudDownload, Mail, Globe } from "lucide-react";
 
 const API_KEY = "ac7e82da2699fbf209b03fe0fd92059bc3ac3a7a";
 
@@ -13,6 +13,7 @@ type NavGroup = { label: string; items: NavItem[] };
 const standalone: NavItem[] = [
   { href: "/", label: "Overview", icon: LayoutDashboard },
   { href: "/updates", label: "Updates", icon: Bell },
+  { href: "/website", label: "Website", icon: Globe },
 ];
 
 const groups: NavGroup[] = [
