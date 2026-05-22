@@ -24,9 +24,10 @@ type OtherNote = {
 type WebsiteData = {
   products: WebsiteProduct[];
   others: OtherNote[];
+  utility: OtherNote[];
 };
 
-const EMPTY: WebsiteData = { products: [], others: [] };
+const EMPTY: WebsiteData = { products: [], others: [], utility: [] };
 
 function load(): WebsiteData {
   try {
@@ -251,9 +252,9 @@ function ProductsTab() {
   );
 }
 
-// ── Others Tab ────────────────────────────────────────────────────────────────
+// ── Shared Notes Tab ──────────────────────────────────────────────────────────
 
-function OthersTab() {
+function NotesTab({ dataKey, placeholder }: { dataKey: "others" | "utility"; placeholder: string }) {
   const [data, setData] = useState<WebsiteData>(EMPTY);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showNew, setShowNew] = useState(false);
@@ -266,21 +267,22 @@ function OthersTab() {
   function addNote() {
     if (!newTitle.trim()) return;
     const note: OtherNote = { id: Date.now().toString(), title: newTitle.trim(), content: "", createdAt: new Date().toISOString() };
-    const next = { ...data, others: [...data.others, note] };
-    save(next);
+    save({ ...data, [dataKey]: [...data[dataKey], note] });
     setNewTitle("");
     setShowNew(false);
     setExpandedId(note.id);
   }
 
   function updateNote(id: string, patch: Partial<OtherNote>) {
-    save({ ...data, others: data.others.map((n) => n.id === id ? { ...n, ...patch } : n) });
+    save({ ...data, [dataKey]: data[dataKey].map((n) => n.id === id ? { ...n, ...patch } : n) });
   }
 
   function removeNote(id: string) {
-    save({ ...data, others: data.others.filter((n) => n.id !== id) });
+    save({ ...data, [dataKey]: data[dataKey].filter((n) => n.id !== id) });
     if (expandedId === id) setExpandedId(null);
   }
+
+  const notes = data[dataKey];
 
   return (
     <div className="space-y-3">
@@ -298,7 +300,7 @@ function OthersTab() {
           <input
             autoFocus
             className="flex-1 bg-[#1a1a1a] border border-[#333] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-[#555] placeholder-[#444]"
-            placeholder="Section title (e.g. About Page, FAQ, Brand Story, Homepage Hero...)"
+            placeholder={placeholder}
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") addNote(); if (e.key === "Escape") setShowNew(false); }}
@@ -308,11 +310,11 @@ function OthersTab() {
         </div>
       )}
 
-      {data.others.length === 0 && !showNew ? (
+      {notes.length === 0 && !showNew ? (
         <div className="bg-[#111] border border-[#222] rounded-xl text-center py-16 text-[#555] text-sm">
-          No notes yet. Add sections for your About page, FAQ, brand story, homepage copy, etc.
+          No notes yet.
         </div>
-      ) : data.others.map((note) => {
+      ) : notes.map((note) => {
         const isExpanded = expandedId === note.id;
         return (
           <div key={note.id} className="bg-[#111] border border-[#222] rounded-xl">
@@ -347,7 +349,7 @@ function OthersTab() {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function WebsitePage() {
-  const [tab, setTab] = useState<"products" | "others">("products");
+  const [tab, setTab] = useState<"products" | "misc" | "utility">("products");
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
@@ -359,7 +361,7 @@ export default function WebsitePage() {
       </div>
 
       <div className="flex gap-1 border-b border-[#222]">
-        {([{ key: "products", label: "Products" }, { key: "others", label: "Others" }] as const).map(({ key, label }) => (
+        {([{ key: "products", label: "Products" }, { key: "misc", label: "Misc" }, { key: "utility", label: "Utility Pages" }] as const).map(({ key, label }) => (
           <button
             key={key}
             onClick={() => setTab(key)}
@@ -371,7 +373,8 @@ export default function WebsitePage() {
       </div>
 
       {tab === "products" && <ProductsTab />}
-      {tab === "others" && <OthersTab />}
+      {tab === "misc" && <NotesTab dataKey="others" placeholder="Section title (e.g. About Page, FAQ, Brand Story, Homepage Hero...)" />}
+      {tab === "utility" && <NotesTab dataKey="utility" placeholder="Utility page title (e.g. Shipping Policy, Returns, Contact...)" />}
     </div>
   );
 }
