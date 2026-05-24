@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useEffect } from "react";
-import { LayoutDashboard, Users, BarChart2, Package, DollarSign, Rocket, ClipboardList, Inbox, Bell, ChevronDown, Mail, Globe, Lightbulb } from "lucide-react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { LayoutDashboard, Users, BarChart2, Package, DollarSign, Rocket, ClipboardList, Inbox, Bell, ChevronDown, Mail, Globe, Lightbulb, CloudUpload, CloudDownload } from "lucide-react";
+
+const API_KEY = "ac7e82da2699fbf209b03fe0fd92059bc3ac3a7a";
 
 type NavItem = { href: string; label: string; icon: React.ElementType };
 type NavGroup = { label: string; items: NavItem[] };
@@ -55,6 +57,41 @@ function NavLink({ href, label, icon: Icon, active }: NavItem & { active: boolea
   );
 }
 
+function getPbData(): Record<string, string> {
+  const data: Record<string, string> = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i)!;
+    if (k.startsWith("pb_")) data[k] = localStorage.getItem(k)!;
+  }
+  return data;
+}
+
+// Merge KV data into localStorage — only adds missing entries, never deletes or overwrites local data.
+function mergeIntoLocal(remote: Record<string, string>) {
+  for (const [key, remoteVal] of Object.entries(remote)) {
+    const localVal = localStorage.getItem(key);
+    if (!localVal) {
+      localStorage.setItem(key, remoteVal);
+      continue;
+    }
+    try {
+      const localArr = JSON.parse(localVal);
+      const remoteArr = JSON.parse(remoteVal);
+      if (Array.isArray(localArr) && Array.isArray(remoteArr)) {
+        const localIds = new Set(localArr.map((x: Record<string, string>) => x.id));
+        const missing = remoteArr.filter((x: Record<string, string>) => !localIds.has(x.id));
+        if (missing.length > 0) {
+          localStorage.setItem(key, JSON.stringify([...localArr, ...missing]));
+        }
+      }
+    } catch {
+      // not an array — local always wins, skip
+    }
+  }
+}
+
+type SyncStatus = "idle" | "pushing" | "pulling" | "ok" | "error";
+
 export default function Sidebar() {
   const pathname = usePathname();
 
@@ -64,6 +101,9 @@ export default function Sidebar() {
   }, {});
 
   const [open, setOpen] = useState<Record<string, boolean>>(initialOpen);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
+  const [syncMsg, setSyncMsg] = useState("");
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     setOpen((prev) => {
@@ -74,6 +114,63 @@ export default function Sidebar() {
       return next;
     });
   }, [pathname]);
+
+  // Auto-push to KV whenever any pb_ key changes
+  useEffect(() => {
+    const original = localStorage.setItem.bind(localStorage);
+    localStorage.setItem = (key: string, value: string) => {
+      original(key, value);
+      if (!key.startsWith("pb_")) return;
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(async () => {
+        try {
+          await fetch("/api/sync", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${API_KEY}` },
+            body: JSON.stringify(getPbData()),
+          });
+        } catch { /* silent */ }
+      }, 3000);
+    };
+    return () => { localStorage.setItem = original; };
+  }, []);
+
+  const flash = (status: SyncStatus, msg: string) => {
+    setSyncStatus(status);
+    setSyncMsg(msg);
+    setTimeout(() => { setSyncStatus("idle"); setSyncMsg(""); }, 2500);
+  };
+
+  const push = useCallback(async () => {
+    setSyncStatus("pushing");
+    try {
+      const res = await fetch("/api/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${API_KEY}` },
+        body: JSON.stringify(getPbData()),
+      });
+      if (!res.ok) throw new Error();
+      flash("ok", "Saved");
+    } catch {
+      flash("error", "Save failed");
+    }
+  }, []);
+
+  // Pull merges remote into local — only adds missing entries, never deletes
+  const pull = useCallback(async () => {
+    setSyncStatus("pulling");
+    try {
+      const res = await fetch("/api/sync");
+      if (!res.ok) throw new Error();
+      const data: Record<string, string> = await res.json();
+      if (!Object.keys(data).length) { flash("error", "Nothing in cloud"); return; }
+      mergeIntoLocal(data);
+      flash("ok", "Merged — reloading…");
+      setTimeout(() => window.location.reload(), 800);
+    } catch {
+      flash("error", "Merge failed");
+    }
+  }, []);
 
   return (
     <aside className="w-56 shrink-0 border-r border-[#222] flex flex-col h-full">
@@ -112,7 +209,30 @@ export default function Sidebar() {
         </div>
       </nav>
 
-      <div className="px-4 py-3 border-t border-[#222]">
+      <div className="px-4 py-3 border-t border-[#222] space-y-2">
+        <div className="flex gap-2">
+          <button
+            onClick={push}
+            disabled={syncStatus === "pushing" || syncStatus === "pulling"}
+            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded text-xs text-[#888] border border-[#333] hover:border-[#555] hover:text-white transition-colors disabled:opacity-40"
+          >
+            <CloudUpload size={12} />
+            {syncStatus === "pushing" ? "Saving…" : "Save"}
+          </button>
+          <button
+            onClick={pull}
+            disabled={syncStatus === "pushing" || syncStatus === "pulling"}
+            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded text-xs text-[#888] border border-[#333] hover:border-[#555] hover:text-white transition-colors disabled:opacity-40"
+          >
+            <CloudDownload size={12} />
+            {syncStatus === "pulling" ? "Merging…" : "Merge"}
+          </button>
+        </div>
+        {syncMsg && (
+          <p className={`text-xs text-center ${syncStatus === "error" ? "text-red-400" : "text-green-400"}`}>
+            {syncMsg}
+          </p>
+        )}
         <p className="text-[#555] text-xs text-center">KS Launch: Sept 1, 2026</p>
       </div>
     </aside>
