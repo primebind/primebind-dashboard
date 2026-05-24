@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { LayoutDashboard, Users, BarChart2, Package, DollarSign, Rocket, ClipboardList, Inbox, Bell, ChevronDown, Mail, Globe, Lightbulb, CloudUpload, CloudDownload } from "lucide-react";
 
-const API_KEY = "ac7e82da2699fbf209b03fe0fd92059bc3ac3a7a";
+const API_KEY = "pb-updates-2026-secure-key";
 
 type NavItem = { href: string; label: string; icon: React.ElementType };
 type NavGroup = { label: string; items: NavItem[] };
