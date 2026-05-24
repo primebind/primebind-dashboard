@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect, useCallback, useRef } from "react";
-import { LayoutDashboard, Users, BarChart2, Package, DollarSign, Rocket, ClipboardList, Inbox, Bell, ChevronDown, CloudUpload, CloudDownload, Mail, Globe } from "lucide-react";
+import { LayoutDashboard, Users, BarChart2, Package, DollarSign, Rocket, ClipboardList, Inbox, Bell, ChevronDown, CloudUpload, CloudDownload, Mail, Globe, Lightbulb } from "lucide-react";
 
 const API_KEY = "ac7e82da2699fbf209b03fe0fd92059bc3ac3a7a";
 
@@ -22,6 +22,7 @@ const groups: NavGroup[] = [
     items: [
       { href: "/influencers", label: "Influencers", icon: Users },
       { href: "/ads", label: "Ad Performance", icon: BarChart2 },
+      { href: "/ad-ideas", label: "Ad Ideas", icon: Lightbulb },
       { href: "/kit", label: "Kit Subscribers", icon: Mail },
     ],
   },
