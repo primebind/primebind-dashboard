@@ -2,10 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useEffect, useCallback, useRef } from "react";
-import { LayoutDashboard, Users, BarChart2, Package, DollarSign, Rocket, ClipboardList, Inbox, Bell, ChevronDown, CloudUpload, CloudDownload, Mail, Globe, Lightbulb } from "lucide-react";
-
-const API_KEY = "ac7e82da2699fbf209b03fe0fd92059bc3ac3a7a";
+import { useState, useEffect } from "react";
+import { LayoutDashboard, Users, BarChart2, Package, DollarSign, Rocket, ClipboardList, Inbox, Bell, ChevronDown, Mail, Globe, Lightbulb } from "lucide-react";
 
 type NavItem = { href: string; label: string; icon: React.ElementType };
 type NavGroup = { label: string; items: NavItem[] };
@@ -57,8 +55,6 @@ function NavLink({ href, label, icon: Icon, active }: NavItem & { active: boolea
   );
 }
 
-type SyncStatus = "idle" | "pushing" | "pulling" | "ok" | "error";
-
 export default function Sidebar() {
   const pathname = usePathname();
 
@@ -68,9 +64,6 @@ export default function Sidebar() {
   }, {});
 
   const [open, setOpen] = useState<Record<string, boolean>>(initialOpen);
-  const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
-  const [syncMsg, setSyncMsg] = useState("");
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     setOpen((prev) => {
@@ -81,72 +74,6 @@ export default function Sidebar() {
       return next;
     });
   }, [pathname]);
-
-  useEffect(() => {
-    const original = localStorage.setItem.bind(localStorage);
-    localStorage.setItem = (key: string, value: string) => {
-      original(key, value);
-      if (!key.startsWith("pb_")) return;
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(async () => {
-        const data: Record<string, string> = {};
-        for (let i = 0; i < localStorage.length; i++) {
-          const k = localStorage.key(i)!;
-          if (k.startsWith("pb_")) data[k] = localStorage.getItem(k)!;
-        }
-        try {
-          const res = await fetch("/api/sync", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${API_KEY}` },
-            body: JSON.stringify(data),
-          });
-          if (res.ok) { setSyncStatus("ok"); setSyncMsg("Synced"); setTimeout(() => { setSyncStatus("idle"); setSyncMsg(""); }, 2000); }
-        } catch { /* silent fail */ }
-      }, 3000);
-    };
-    return () => { localStorage.setItem = original; };
-  }, []);
-
-  const flash = (status: SyncStatus, msg: string) => {
-    setSyncStatus(status);
-    setSyncMsg(msg);
-    setTimeout(() => { setSyncStatus("idle"); setSyncMsg(""); }, 3000);
-  };
-
-  const push = useCallback(async () => {
-    setSyncStatus("pushing");
-    try {
-      const data: Record<string, string> = {};
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i)!;
-        if (k.startsWith("pb_")) data[k] = localStorage.getItem(k)!;
-      }
-      const res = await fetch("/api/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${API_KEY}` },
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) throw new Error();
-      flash("ok", "Pushed");
-    } catch {
-      flash("error", "Push failed");
-    }
-  }, []);
-
-  const pull = useCallback(async () => {
-    setSyncStatus("pulling");
-    try {
-      const res = await fetch("/api/sync");
-      if (!res.ok) throw new Error();
-      const data: Record<string, string> = await res.json();
-      if (!Object.keys(data).length) { flash("error", "No data found"); return; }
-      Object.entries(data).forEach(([k, v]) => localStorage.setItem(k, v));
-      flash("ok", "Pulled — reloading…");
-      setTimeout(() => window.location.reload(), 800);
-    } catch {
-      flash("error", "Pull failed");
-    }
-  }, []);
 
   return (
     <aside className="w-56 shrink-0 border-r border-[#222] flex flex-col h-full">
@@ -185,30 +112,7 @@ export default function Sidebar() {
         </div>
       </nav>
 
-      <div className="px-4 py-3 border-t border-[#222] space-y-2">
-        <div className="flex gap-2">
-          <button
-            onClick={push}
-            disabled={syncStatus === "pushing" || syncStatus === "pulling"}
-            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded text-xs text-[#888] border border-[#333] hover:border-[#555] hover:text-white transition-colors disabled:opacity-40"
-          >
-            <CloudUpload size={12} />
-            {syncStatus === "pushing" ? "Pushing…" : "Push"}
-          </button>
-          <button
-            onClick={pull}
-            disabled={syncStatus === "pushing" || syncStatus === "pulling"}
-            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded text-xs text-[#888] border border-[#333] hover:border-[#555] hover:text-white transition-colors disabled:opacity-40"
-          >
-            <CloudDownload size={12} />
-            {syncStatus === "pulling" ? "Pulling…" : "Pull"}
-          </button>
-        </div>
-        {syncMsg && (
-          <p className={`text-xs text-center ${syncStatus === "error" ? "text-red-400" : "text-green-400"}`}>
-            {syncMsg}
-          </p>
-        )}
+      <div className="px-4 py-3 border-t border-[#222]">
         <p className="text-[#555] text-xs text-center">KS Launch: Sept 1, 2026</p>
       </div>
     </aside>
