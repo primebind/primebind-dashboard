@@ -578,19 +578,18 @@ export default function Financials() {
                           >
                             <td className="px-5 py-3 text-[#888] text-xs">{t.date}</td>
                             <td className="px-5 py-3 max-w-[260px]" onClick={(e) => e.stopPropagation()}>
-                              <div className="flex items-center gap-2 flex-wrap">
+                              <div className="flex items-center gap-2">
                                 {isExpandable && (isExpanded ? <ChevronDown size={11} className="text-[#555] shrink-0" /> : <ChevronRight size={11} className="text-[#555] shrink-0" />)}
-                                <span className="text-white shrink-0">{t.description}</span>
+                                <input
+                                  className="w-full bg-transparent text-white text-sm placeholder-[#444] focus:outline-none hover:text-white transition-colors"
+                                  placeholder="Vendor / description"
+                                  value={t.vendor || ""}
+                                  onChange={(e) => updateVendor(t.id, e.target.value)}
+                                  onClick={(e) => e.stopPropagation()}
+                                />
                                 {isSplit && <span className="text-[10px] text-[#555] bg-[#1a1a1a] px-1.5 py-0.5 rounded shrink-0">{t.lines!.length} lines</span>}
                                 {matchedPo && <span className="text-[10px] text-purple-400 bg-purple-950 px-1.5 py-0.5 rounded shrink-0">{matchedPo.items.length} lines</span>}
                               </div>
-                              <input
-                                className="mt-1 w-full bg-transparent text-[#666] text-xs placeholder-[#444] focus:outline-none focus:text-white hover:text-[#888] transition-colors"
-                                placeholder="+ vendor"
-                                value={t.vendor || ""}
-                                onChange={(e) => updateVendor(t.id, e.target.value)}
-                                onClick={(e) => e.stopPropagation()}
-                              />
                             </td>
                             <td className={`px-5 py-3 font-medium ${t.amount >= 0 ? "text-green-400" : "text-red-400"}`}>
                               {t.amount >= 0 ? "+" : ""}${Math.abs(t.amount).toFixed(2)}
