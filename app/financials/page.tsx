@@ -283,9 +283,11 @@ type Transaction = {
   id: string;
   date: string;
   description: string;
+  vendor?: string;
   amount: number;
   account: string;
   bank: string;
+  comments?: string;
   lines?: TransactionLine[];
   matchedPoId?: string;
 };
@@ -345,6 +347,14 @@ export default function Financials() {
 
   function updateAccount(id: string, account: string) {
     save(transactions.map((t) => (t.id === id ? { ...t, account } : t)));
+  }
+
+  function updateVendor(id: string, vendor: string) {
+    save(transactions.map((t) => (t.id === id ? { ...t, vendor } : t)));
+  }
+
+  function updateComments(id: string, comments: string) {
+    save(transactions.map((t) => (t.id === id ? { ...t, comments } : t)));
   }
 
   function matchToPO(txnId: string, po: PoSummary) {
@@ -547,7 +557,7 @@ export default function Financials() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[#222] text-[#555] text-xs uppercase tracking-wider">
-                    {["Date", "Description", "Amount", "Account", "Bank", ""].map((h) => (
+                    {["Date", "Description", "Amount", "Account", "Comments", ""].map((h) => (
                       <th key={h} className="text-left px-5 py-3">{h}</th>
                     ))}
                   </tr>
@@ -567,13 +577,20 @@ export default function Financials() {
                             onClick={isExpandable ? () => setExpandedTxnId(isExpanded ? null : t.id) : undefined}
                           >
                             <td className="px-5 py-3 text-[#888] text-xs">{t.date}</td>
-                            <td className="px-5 py-3 max-w-[220px]">
-                              <div className="flex items-center gap-2">
+                            <td className="px-5 py-3 max-w-[260px]" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex items-center gap-2 flex-wrap">
                                 {isExpandable && (isExpanded ? <ChevronDown size={11} className="text-[#555] shrink-0" /> : <ChevronRight size={11} className="text-[#555] shrink-0" />)}
-                                <span className="text-white truncate">{t.description}</span>
+                                <span className="text-white shrink-0">{t.description}</span>
                                 {isSplit && <span className="text-[10px] text-[#555] bg-[#1a1a1a] px-1.5 py-0.5 rounded shrink-0">{t.lines!.length} lines</span>}
                                 {matchedPo && <span className="text-[10px] text-purple-400 bg-purple-950 px-1.5 py-0.5 rounded shrink-0">{matchedPo.items.length} lines</span>}
                               </div>
+                              <input
+                                className="mt-1 w-full bg-transparent text-[#666] text-xs placeholder-[#444] focus:outline-none focus:text-white hover:text-[#888] transition-colors"
+                                placeholder="+ vendor"
+                                value={t.vendor || ""}
+                                onChange={(e) => updateVendor(t.id, e.target.value)}
+                                onClick={(e) => e.stopPropagation()}
+                              />
                             </td>
                             <td className={`px-5 py-3 font-medium ${t.amount >= 0 ? "text-green-400" : "text-red-400"}`}>
                               {t.amount >= 0 ? "+" : ""}${Math.abs(t.amount).toFixed(2)}
@@ -602,7 +619,14 @@ export default function Financials() {
                                 </div>
                               )}
                             </td>
-                            <td className="px-5 py-3 text-[#555] text-xs">{t.bank}</td>
+                            <td className="px-5 py-3 min-w-[160px]" onClick={(e) => e.stopPropagation()}>
+                              <input
+                                className="w-full bg-transparent text-[#666] text-xs placeholder-[#444] focus:outline-none focus:text-white hover:text-[#888] transition-colors"
+                                placeholder="Add note..."
+                                value={t.comments || ""}
+                                onChange={(e) => updateComments(t.id, e.target.value)}
+                              />
+                            </td>
                             <td className="px-5 py-3" onClick={(e) => e.stopPropagation()}>
                               <button onClick={() => remove(t.id)} className="text-[#444] hover:text-red-500 transition-colors">
                                 <Trash2 size={14} />
