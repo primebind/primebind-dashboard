@@ -374,6 +374,29 @@ export default function Financials() {
     save(transactions.map((t) => t.id === txnId ? { ...t, matchedPoId: undefined } : t));
   }
 
+  function extractVendor(name: string): string {
+    // Try to grab the word right after "-VISA " — covers most US Bank debit card transactions
+    const visaMatch = name.match(/-VISA\s+([A-Z0-9]+)/i);
+    if (visaMatch) {
+      const raw = visaMatch[1].toLowerCase();
+      return raw.charAt(0).toUpperCase() + raw.slice(1);
+    }
+    // Fallback: scan for known brands anywhere in the string
+    const n = name.toUpperCase();
+    if (n.includes("AMAZON")) return "Amazon";
+    if (n.includes("TARGET")) return "Target";
+    if (n.includes("WALMART") || n.includes("WAL-MART")) return "Walmart";
+    if (n.includes("BEST BUY")) return "Best Buy";
+    if (n.includes("PAYPAL")) return "PayPal";
+    if (n.includes("SHOPIFY")) return "Shopify";
+    if (n.includes("GOOGLE")) return "Google";
+    if (n.includes("APPLE")) return "Apple";
+    if (n.includes("STRIPE")) return "Stripe";
+    if (n.includes("ZELLE")) return "Zelle";
+    if (n.includes("VENMO")) return "Venmo";
+    return "";
+  }
+
   function handleCSV(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -388,10 +411,12 @@ export default function Financials() {
         if (cols.length < 3) continue;
         const date = cols[0];
         const description = cols[1] || cols[2] || "";
+        const name = cols[2] || "";
+        const vendor = extractVendor(name);
         const amountRaw = cols.find((c) => !isNaN(+c) && c !== "") || "0";
         const amount = parseFloat(amountRaw);
         if (!date || isNaN(amount)) continue;
-        parsed.push({ id: `${Date.now()}-${Math.random()}`, date, description, amount, account: "", bank });
+        parsed.push({ id: `${Date.now()}-${Math.random()}`, date, description, vendor, amount, account: "", bank });
       }
       save([...transactions, ...parsed]);
     };
