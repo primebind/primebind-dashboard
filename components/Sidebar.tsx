@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect, useCallback, useRef } from "react";
-import { LayoutDashboard, Users, BarChart2, Package, DollarSign, Rocket, ClipboardList, Inbox, Bell, ChevronDown, Mail, Globe, Lightbulb, CloudUpload, CloudDownload } from "lucide-react";
+import { LayoutDashboard, Users, BarChart2, Package, DollarSign, Rocket, ClipboardList, Inbox, Bell, ChevronDown, Mail, Globe, Lightbulb, CloudUpload, CloudDownload, TrendingDown } from "lucide-react";
 
 const API_KEY = "pb-updates-2026-secure-key";
 
@@ -30,6 +30,7 @@ const groups: NavGroup[] = [
     label: "Finance",
     items: [
       { href: "/financials", label: "Financials", icon: DollarSign },
+      { href: "/cashflow", label: "Cashflow", icon: TrendingDown },
       { href: "/purchase-orders", label: "Purchase Orders", icon: ClipboardList },
       { href: "/inbound", label: "Inbounds", icon: Inbox },
     ],
