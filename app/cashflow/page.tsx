@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Plus, Trash2, Pencil, Check, X } from "lucide-react";
+
 import {
   ComposedChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ReferenceLine, ResponsiveContainer,
@@ -54,9 +55,6 @@ function CustomTooltip({ active, payload, label }: any) {
 }
 
 export default function CashflowPage() {
-  const [startBalance, setStartBalance] = useState(30000);
-  const [editingStart, setEditingStart] = useState(false);
-  const [startDraft, setStartDraft] = useState("");
   const [actuals, setActuals] = useState<FinancialEntry[]>([]);
   const [projected, setProjected] = useState<ProjectedItem[]>([]);
   const [showForm, setShowForm] = useState(false);
@@ -65,9 +63,6 @@ export default function CashflowPage() {
   const [editDraft, setEditDraft] = useState<Partial<ProjectedItem>>({});
 
   useEffect(() => {
-    const sb = localStorage.getItem("pb_cf_start_balance");
-    if (sb) setStartBalance(parseFloat(sb));
-
     const raw = localStorage.getItem("pb_financials");
     if (raw) {
       const parsed = JSON.parse(raw) as FinancialEntry[];
@@ -112,11 +107,6 @@ export default function CashflowPage() {
   }
   function cancelEdit() { setEditingId(null); setEditDraft({}); }
 
-  function saveStartBalance(val: number) {
-    setStartBalance(val);
-    localStorage.setItem("pb_cf_start_balance", val.toString());
-  }
-
   const today = new Date().toISOString().split("T")[0];
 
   // Build chart data
@@ -129,10 +119,10 @@ export default function CashflowPage() {
       map.set(date, { date, label, ...map.get(date), ...patch });
     }
 
-    // Walk actuals
-    let bal = startBalance;
+    // Walk actuals — start from $0, let deposits build the balance
+    let bal = 0;
     const startDate = actuals.length > 0 ? actuals[0].date.slice(0, 7) + "-01" : today.slice(0, 7) + "-01";
-    upsert(startDate, { actual: Math.round(bal) });
+    upsert(startDate, { actual: 0 });
 
     for (const t of actuals) {
       bal += t.amount;
@@ -154,7 +144,7 @@ export default function CashflowPage() {
     return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date));
   })();
 
-  const currentBalance = [...chartData].reverse().find((p) => p.actual !== undefined)?.actual ?? startBalance;
+  const currentBalance = [...chartData].reverse().find((p) => p.actual !== undefined)?.actual ?? 0;
   const projectedPoints = chartData.filter((p) => p.projected !== undefined).map((p) => p.projected!);
   const projectedLow = projectedPoints.length ? Math.min(...projectedPoints) : currentBalance;
   const totalOut = projected.filter((p) => p.amount < 0).reduce((s, p) => s + p.amount, 0);
@@ -169,7 +159,7 @@ export default function CashflowPage() {
   }
 
   const yMin = Math.min(0, projectedLow - 2000);
-  const yMax = Math.max(startBalance, currentBalance) + 3000;
+  const yMax = currentBalance + 5000;
 
   return (
     <div className="max-w-5xl mx-auto space-y-8">
@@ -359,25 +349,6 @@ export default function CashflowPage() {
         )}
       </div>
 
-      {/* Starting balance */}
-      <div className="bg-[#0d0d0d] border border-[#1a1a1a] rounded-xl p-5 flex items-center justify-between">
-        <div>
-          <p className="text-xs text-[#444] uppercase tracking-wider mb-1">Starting Balance</p>
-          {editingStart ? (
-            <div className="flex items-center gap-2">
-              <input className="input w-36" value={startDraft} onChange={(e) => setStartDraft(e.target.value)} autoFocus onKeyDown={(e) => { if (e.key === "Enter") { const v = parseFloat(startDraft); if (!isNaN(v)) saveStartBalance(v); setEditingStart(false); } }} />
-              <button onClick={() => { const v = parseFloat(startDraft); if (!isNaN(v)) saveStartBalance(v); setEditingStart(false); }} className="text-green-400 hover:text-green-300"><Check size={14} /></button>
-              <button onClick={() => setEditingStart(false)} className="text-[#555] hover:text-white"><X size={14} /></button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <p className="text-white font-semibold">{fmt(startBalance)}</p>
-              <button onClick={() => { setStartDraft(startBalance.toString()); setEditingStart(true); }} className="text-[#444] hover:text-white"><Pencil size={12} /></button>
-            </div>
-          )}
-        </div>
-        <p className="text-xs text-[#444]">Baseline — all actuals computed from this</p>
-      </div>
     </div>
   );
 }
