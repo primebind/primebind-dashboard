@@ -4,6 +4,7 @@ import { Fragment, useState, useEffect } from "react";
 import { Plus, Trash2, Copy, ChevronDown, ChevronRight, Pencil, Check, X } from "lucide-react";
 
 type Status = "Prospecting" | "Contacted" | "Interested" | "Package Sent" | "Posted" | "Passed";
+type Tier = 1 | 2 | 3;
 type Shipment = { id: string; skuId: string; colorId: string; batch: number };
 type SKU = { id: string; parentId: string | null; name: string };
 type Color = { id: string; name: string; hex: string };
@@ -15,6 +16,7 @@ type Influencer = {
   platform: string;
   followers: string;
   status: Status;
+  tier?: Tier | null;
   refLink: string;
   notes: string;
   shipments: Shipment[];
@@ -38,11 +40,33 @@ const STATUS_COLORS: Record<Status, string> = {
   Passed: "bg-[#222] text-[#555]",
 };
 
+const TIER_STYLES: Record<Tier, string> = {
+  1: "bg-white text-black",
+  2: "bg-blue-950 text-blue-300",
+  3: "bg-[#252525] text-[#666]",
+};
+
 const STATUSES: Status[] = ["Prospecting", "Contacted", "Interested", "Package Sent", "Posted", "Passed"];
 const PLATFORMS = ["TikTok", "YouTube", "Instagram", "Twitter/X"];
+const TIERS: (Tier | null)[] = [1, 2, 3, null];
 
 function makeRef(handle: string) {
   return handle ? `kickstarter.com/projects/primebind/primebind?ref=${handle.replace("@", "").toLowerCase().replace(/\s+/g, "_")}` : "";
+}
+
+function TierBadge({ tier, onClick }: { tier?: Tier | null; onClick: () => void }) {
+  if (!tier) {
+    return (
+      <button onClick={onClick} className="w-7 h-7 rounded-md border border-dashed border-[#333] text-[#444] text-xs hover:border-[#555] hover:text-[#666] transition-colors flex items-center justify-center">
+        —
+      </button>
+    );
+  }
+  return (
+    <button onClick={onClick} className={`w-7 h-7 rounded-md text-xs font-bold transition-colors hover:opacity-80 ${TIER_STYLES[tier]}`}>
+      {tier}
+    </button>
+  );
 }
 
 export default function Influencers() {
@@ -50,7 +74,7 @@ export default function Influencers() {
   const [skus, setSkus] = useState<SKU[]>([]);
   const [colors, setColors] = useState<Color[]>([]);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: "", handle: "", platform: "TikTok", followers: "", status: "Prospecting" as Status, notes: "" });
+  const [form, setForm] = useState({ name: "", handle: "", platform: "TikTok", followers: "", status: "Prospecting" as Status, tier: null as Tier | null, notes: "" });
   const [copied, setCopied] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [shipForm, setShipForm] = useState({ skuId: "", colorId: "", batch: 2 });
@@ -90,11 +114,11 @@ export default function Influencers() {
     const entry: Influencer = {
       id: Date.now().toString(),
       name: form.name, handle: form.handle, platform: form.platform,
-      followers: form.followers, status: form.status,
+      followers: form.followers, status: form.status, tier: form.tier,
       refLink: makeRef(form.handle), notes: form.notes, shipments: [],
     };
     save([...influencers, entry]);
-    setForm({ name: "", handle: "", platform: "TikTok", followers: "", status: "Prospecting", notes: "" });
+    setForm({ name: "", handle: "", platform: "TikTok", followers: "", status: "Prospecting", tier: null, notes: "" });
     setShowForm(false);
   }
 
@@ -102,6 +126,12 @@ export default function Influencers() {
 
   function updateStatus(id: string, status: Status) {
     save(influencers.map((i) => (i.id === id ? { ...i, status } : i)));
+  }
+
+  function cycleTier(id: string, current?: Tier | null) {
+    const idx = TIERS.indexOf(current ?? null);
+    const next = TIERS[(idx + 1) % TIERS.length];
+    save(influencers.map((i) => (i.id === id ? { ...i, tier: next } : i)));
   }
 
   function copyLink(link: string, id: string) {
@@ -143,13 +173,17 @@ export default function Influencers() {
   const parentSkus = skus.filter((s) => s.parentId === null);
   const counts = STATUSES.reduce((acc, s) => ({ ...acc, [s]: influencers.filter((i) => i.status === s).length }), {} as Record<string, number>);
   const totalShipped = influencers.reduce((sum, i) => sum + i.shipments.length, 0);
+  const tierCounts = ([1, 2, 3] as Tier[]).reduce((acc, t) => ({ ...acc, [t]: influencers.filter((i) => i.tier === t).length }), {} as Record<Tier, number>);
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Influencers</h1>
-          <p className="text-[#888] text-sm mt-1">{influencers.length} tracked · {totalShipped} sample{totalShipped !== 1 ? "s" : ""} sent · Target: 20</p>
+          <p className="text-[#888] text-sm mt-1">
+            {influencers.length} tracked · {totalShipped} sample{totalShipped !== 1 ? "s" : ""} sent · Target: 20
+            <span className="ml-3 text-[#555]">T1: {tierCounts[1] || 0} · T2: {tierCounts[2] || 0} · T3: {tierCounts[3] || 0}</span>
+          </p>
         </div>
         <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-2 bg-white text-black text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#e0e0e0] transition-colors">
           <Plus size={16} /> Add Influencer
@@ -187,6 +221,15 @@ export default function Influencers() {
               <label className="text-xs text-[#888] mb-1 block">Followers</label>
               <input className="input w-full" placeholder="45K" value={form.followers} onChange={(e) => setForm({ ...form, followers: e.target.value })} />
             </div>
+            <div>
+              <label className="text-xs text-[#888] mb-1 block">Tier</label>
+              <select className="input w-full" value={form.tier ?? ""} onChange={(e) => setForm({ ...form, tier: e.target.value ? +e.target.value as Tier : null })}>
+                <option value="">—</option>
+                <option value="1">Tier 1 — Full pitch</option>
+                <option value="2">Tier 2 — Gift only</option>
+                <option value="3">Tier 3 — Verify / hold</option>
+              </select>
+            </div>
             <div className="col-span-2">
               <label className="text-xs text-[#888] mb-1 block">Notes</label>
               <input className="input w-full" placeholder="Pokemon collector, no VaultX ties, 8% engagement" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
@@ -206,6 +249,7 @@ export default function Influencers() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[#222] text-[#555] text-xs uppercase tracking-wider">
+                <th className="text-left px-5 py-3 w-8">Tier</th>
                 <th className="text-left px-5 py-3">Name</th>
                 <th className="text-left px-5 py-3">Platform</th>
                 <th className="text-left px-5 py-3">Followers</th>
@@ -223,6 +267,22 @@ export default function Influencers() {
                 return (
                   <Fragment key={inf.id}>
                     <tr className="border-b border-[#1a1a1a] hover:bg-[#151515] transition-colors">
+                      <td className="px-5 py-4">
+                        {editingId === inf.id ? (
+                          <select
+                            className="input w-16 text-xs"
+                            value={editDraft.tier ?? ""}
+                            onChange={(e) => setEditDraft({ ...editDraft, tier: e.target.value ? +e.target.value as Tier : null })}
+                          >
+                            <option value="">—</option>
+                            <option value="1">T1</option>
+                            <option value="2">T2</option>
+                            <option value="3">T3</option>
+                          </select>
+                        ) : (
+                          <TierBadge tier={inf.tier} onClick={() => cycleTier(inf.id, inf.tier)} />
+                        )}
+                      </td>
                       <td className="px-5 py-4">
                         {editingId === inf.id ? (
                           <div className="space-y-1">
@@ -313,7 +373,7 @@ export default function Influencers() {
 
                     {isExpanded && (
                       <tr className="border-b border-[#1a1a1a]">
-                        <td colSpan={8} className="px-10 pb-4 pt-2 bg-[#0d0d0d]">
+                        <td colSpan={9} className="px-10 pb-4 pt-2 bg-[#0d0d0d]">
                           {shipped.length > 0 && (
                             <div className="space-y-1.5 mb-3">
                               {shipped.map((s) => {
