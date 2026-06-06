@@ -186,9 +186,16 @@ export default function Influencers() {
             <span className="ml-3 text-[#555]">T1: {tierCounts[1] || 0} · T2: {tierCounts[2] || 0} · T3: {tierCounts[3] || 0}</span>
           </p>
         </div>
-        <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-2 bg-white text-black text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#e0e0e0] transition-colors">
-          <Plus size={16} /> Add Influencer
-        </button>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 text-xs text-[#555]">
+            <span className="flex items-center gap-1.5"><span className="w-5 h-5 rounded bg-white text-black font-bold flex items-center justify-center text-xs">1</span> Local + following</span>
+            <span className="flex items-center gap-1.5"><span className="w-5 h-5 rounded bg-blue-950 text-blue-300 font-bold flex items-center justify-center text-xs">2</span> Remote / professional</span>
+            <span className="flex items-center gap-1.5"><span className="w-5 h-5 rounded bg-[#252525] text-[#666] font-bold flex items-center justify-center text-xs">3</span> Local, small reach</span>
+          </div>
+          <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-2 bg-white text-black text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#e0e0e0] transition-colors">
+            <Plus size={16} /> Add Influencer
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
