@@ -174,6 +174,7 @@ export default function Influencers() {
   const counts = STATUSES.reduce((acc, s) => ({ ...acc, [s]: influencers.filter((i) => i.status === s).length }), {} as Record<string, number>);
   const totalShipped = influencers.reduce((sum, i) => sum + i.shipments.length, 0);
   const tierCounts = ([1, 2, 3] as Tier[]).reduce((acc, t) => ({ ...acc, [t]: influencers.filter((i) => i.tier === t).length }), {} as Record<Tier, number>);
+  const sorted = [...influencers].sort((a, b) => (a.tier ?? 99) - (b.tier ?? 99));
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
@@ -261,7 +262,7 @@ export default function Influencers() {
               </tr>
             </thead>
             <tbody>
-              {influencers.map((inf) => {
+              {sorted.map((inf) => {
                 const isExpanded = expandedId === inf.id;
                 const shipped = inf.shipments || [];
                 return (
