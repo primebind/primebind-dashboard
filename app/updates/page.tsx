@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
 
-type Section = { title: string; bullets: string[] };
+type Section = { title: string; bullets?: string[]; body?: string };
 type Update = {
   id: string;
   timestamp: string;
@@ -145,14 +145,18 @@ export default function UpdatesPage() {
                         <p className="text-[#666] text-xs font-semibold uppercase tracking-wider mb-2">
                           {section.title}
                         </p>
-                        <ul className="space-y-1.5">
-                          {section.bullets.map((bullet, j) => (
-                            <li key={j} className="text-sm text-white flex gap-2 leading-relaxed">
-                              <span className="text-[#333] shrink-0 mt-0.5">·</span>
-                              <span>{bullet}</span>
-                            </li>
-                          ))}
-                        </ul>
+                        {section.bullets && section.bullets.length > 0 ? (
+                          <ul className="space-y-1.5">
+                            {section.bullets.map((bullet, j) => (
+                              <li key={j} className="text-sm text-white flex gap-2 leading-relaxed">
+                                <span className="text-[#333] shrink-0 mt-0.5">·</span>
+                                <span>{bullet}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="text-sm text-white leading-relaxed">{section.body}</p>
+                        )}
                       </div>
                     ))}
                   </div>
