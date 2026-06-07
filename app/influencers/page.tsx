@@ -48,25 +48,9 @@ const TIER_STYLES: Record<Tier, string> = {
 
 const STATUSES: Status[] = ["Prospecting", "Contacted", "Interested", "Package Sent", "Posted", "Passed"];
 const PLATFORMS = ["TikTok", "YouTube", "Instagram", "Twitter/X"];
-const TIERS: (Tier | null)[] = [1, 2, 3, null];
 
 function makeRef(handle: string) {
   return handle ? `kickstarter.com/projects/primebind/primebind?ref=${handle.replace("@", "").toLowerCase().replace(/\s+/g, "_")}` : "";
-}
-
-function TierBadge({ tier, onClick }: { tier?: Tier | null; onClick: () => void }) {
-  if (!tier) {
-    return (
-      <button onClick={onClick} className="w-7 h-7 rounded-md border border-dashed border-[#333] text-[#444] text-xs hover:border-[#555] hover:text-[#666] transition-colors flex items-center justify-center">
-        —
-      </button>
-    );
-  }
-  return (
-    <button onClick={onClick} className={`w-7 h-7 rounded-md text-xs font-bold transition-colors hover:opacity-80 ${TIER_STYLES[tier]}`}>
-      {tier}
-    </button>
-  );
 }
 
 export default function Influencers() {
@@ -128,10 +112,8 @@ export default function Influencers() {
     save(influencers.map((i) => (i.id === id ? { ...i, status } : i)));
   }
 
-  function cycleTier(id: string, current?: Tier | null) {
-    const idx = TIERS.indexOf(current ?? null);
-    const next = TIERS[(idx + 1) % TIERS.length];
-    save(influencers.map((i) => (i.id === id ? { ...i, tier: next } : i)));
+  function setTier(id: string, tier: Tier | null) {
+    save(influencers.map((i) => (i.id === id ? { ...i, tier } : i)));
   }
 
   function copyLink(link: string, id: string) {
@@ -276,20 +258,25 @@ export default function Influencers() {
                   <Fragment key={inf.id}>
                     <tr className="border-b border-[#1a1a1a] hover:bg-[#151515] transition-colors">
                       <td className="px-5 py-4">
-                        {editingId === inf.id ? (
-                          <select
-                            className="input w-16 text-xs"
-                            value={editDraft.tier ?? ""}
-                            onChange={(e) => setEditDraft({ ...editDraft, tier: e.target.value ? +e.target.value as Tier : null })}
-                          >
-                            <option value="">—</option>
-                            <option value="1">T1</option>
-                            <option value="2">T2</option>
-                            <option value="3">T3</option>
-                          </select>
-                        ) : (
-                          <TierBadge tier={inf.tier} onClick={() => cycleTier(inf.id, inf.tier)} />
-                        )}
+                        <select
+                          value={editingId === inf.id ? (editDraft.tier ?? "") : (inf.tier ?? "")}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            const tier = val ? +val as Tier : null;
+                            if (editingId === inf.id) setEditDraft({ ...editDraft, tier });
+                            else setTier(inf.id, tier);
+                          }}
+                          className={`w-12 h-7 rounded-md text-xs font-bold text-center cursor-pointer border-0 focus:outline-none focus:ring-1 focus:ring-[#444] ${
+                            (editingId === inf.id ? editDraft.tier : inf.tier)
+                              ? TIER_STYLES[(editingId === inf.id ? editDraft.tier : inf.tier) as Tier]
+                              : "bg-[#1a1a1a] text-[#444]"
+                          }`}
+                        >
+                          <option value="">—</option>
+                          <option value="1">T1</option>
+                          <option value="2">T2</option>
+                          <option value="3">T3</option>
+                        </select>
                       </td>
                       <td className="px-5 py-4">
                         {editingId === inf.id ? (
