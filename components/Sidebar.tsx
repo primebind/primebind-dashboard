@@ -22,8 +22,8 @@ const groups: NavGroup[] = [
     items: [
       { href: "/influencers", label: "Influencers", icon: Users },
       { href: "/content-ideas", label: "Content Ideas", icon: Film },
-      { href: "/ads", label: "Ad Performance", icon: BarChart2 },
       { href: "/ad-ideas", label: "Ad Ideas", icon: Lightbulb },
+      { href: "/ads", label: "Ad Performance", icon: BarChart2 },
       { href: "/kit", label: "Kit Subscribers", icon: Mail },
     ],
   },
