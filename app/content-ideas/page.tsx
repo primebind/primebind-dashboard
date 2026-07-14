@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Pencil } from "lucide-react";
 
 type Status = "Idea" | "Posted" | "Winner" | "Loser";
 type Platform = "TikTok" | "Instagram" | "YouTube" | "Other";
@@ -10,7 +10,7 @@ type Format = "Video" | "Reel" | "Carousel" | "Photo" | "Story";
 type ContentIdea = {
   id: string;
   concept: string;
-  platform: Platform;
+  platforms: Platform[];
   format: Format;
   status: Status;
   notes: string;
@@ -28,17 +28,42 @@ const STATUSES: Status[] = ["Idea", "Posted", "Winner", "Loser"];
 const PLATFORMS: Platform[] = ["TikTok", "Instagram", "YouTube", "Other"];
 const FORMATS: Format[] = ["Video", "Reel", "Carousel", "Photo", "Story"];
 
-const EMPTY_FORM = { concept: "", platform: "TikTok" as Platform, format: "Video" as Format, status: "Idea" as Status, notes: "" };
+const EMPTY_FORM = {
+  concept: "",
+  platforms: ["TikTok", "Instagram"] as Platform[],
+  format: "Video" as Format,
+  status: "Idea" as Status,
+  notes: "",
+};
+
+// Older entries stored a single `platform` string — normalize to the `platforms` array shape.
+function normalize(raw: Record<string, unknown>): ContentIdea {
+  const platforms = Array.isArray(raw.platforms)
+    ? (raw.platforms as Platform[])
+    : raw.platform
+    ? [raw.platform as Platform]
+    : [];
+  return {
+    id: raw.id as string,
+    concept: raw.concept as string,
+    platforms,
+    format: raw.format as Format,
+    status: raw.status as Status,
+    notes: (raw.notes as string) ?? "",
+    createdAt: raw.createdAt as string,
+  };
+}
 
 export default function ContentIdeas() {
   const [ideas, setIdeas] = useState<ContentIdea[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [filter, setFilter] = useState<Status | "All">("All");
 
   useEffect(() => {
     const saved = localStorage.getItem("pb_content_ideas");
-    if (saved) setIdeas(JSON.parse(saved));
+    if (saved) setIdeas(JSON.parse(saved).map(normalize));
   }, []);
 
   function save(updated: ContentIdea[]) {
@@ -46,11 +71,39 @@ export default function ContentIdeas() {
     localStorage.setItem("pb_content_ideas", JSON.stringify(updated));
   }
 
-  function add() {
-    if (!form.concept.trim()) return;
-    save([{ id: Date.now().toString(), ...form, createdAt: new Date().toISOString().split("T")[0] }, ...ideas]);
+  function togglePlatform(p: Platform) {
+    setForm((f) => ({
+      ...f,
+      platforms: f.platforms.includes(p) ? f.platforms.filter((x) => x !== p) : [...f.platforms, p],
+    }));
+  }
+
+  function startAdd() {
+    setEditingId(null);
     setForm(EMPTY_FORM);
+    setShowForm(true);
+  }
+
+  function startEdit(idea: ContentIdea) {
+    setEditingId(idea.id);
+    setForm({ concept: idea.concept, platforms: idea.platforms, format: idea.format, status: idea.status, notes: idea.notes });
+    setShowForm(true);
+  }
+
+  function cancelForm() {
     setShowForm(false);
+    setEditingId(null);
+    setForm(EMPTY_FORM);
+  }
+
+  function submit() {
+    if (!form.concept.trim()) return;
+    if (editingId) {
+      save(ideas.map((i) => (i.id === editingId ? { ...i, ...form } : i)));
+    } else {
+      save([{ id: Date.now().toString(), ...form, createdAt: new Date().toISOString().split("T")[0] }, ...ideas]);
+    }
+    cancelForm();
   }
 
   function updateStatus(id: string, status: Status) {
@@ -76,7 +129,7 @@ export default function ContentIdeas() {
           <p className="text-[#888] text-sm mt-1">Capture, track, and grade organic content concepts</p>
         </div>
         <button
-          onClick={() => setShowForm(!showForm)}
+          onClick={() => (showForm ? cancelForm() : startAdd())}
           className="flex items-center gap-2 bg-white text-black text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#e0e0e0] transition-colors"
         >
           <Plus size={16} /> Add Idea
@@ -101,7 +154,7 @@ export default function ContentIdeas() {
 
       {showForm && (
         <div className="bg-[#111] border border-[#222] rounded-xl p-6 space-y-4">
-          <h2 className="text-sm font-semibold text-[#888] uppercase tracking-wider">New Idea</h2>
+          <h2 className="text-sm font-semibold text-[#888] uppercase tracking-wider">{editingId ? "Edit Idea" : "New Idea"}</h2>
           <div>
             <label className="text-xs text-[#888] mb-1 block">Concept</label>
             <input
@@ -111,17 +164,26 @@ export default function ContentIdeas() {
               onChange={(e) => setForm({ ...form, concept: e.target.value })}
             />
           </div>
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <label className="text-xs text-[#888] mb-1 block">Platform</label>
-              <select
-                className="w-full bg-[#1a1a1a] border border-[#333] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#555]"
-                value={form.platform}
-                onChange={(e) => setForm({ ...form, platform: e.target.value as Platform })}
-              >
-                {PLATFORMS.map((p) => <option key={p}>{p}</option>)}
-              </select>
+          <div>
+            <label className="text-xs text-[#888] mb-1 block">Platforms</label>
+            <div className="flex gap-2 flex-wrap">
+              {PLATFORMS.map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => togglePlatform(p)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                    form.platforms.includes(p)
+                      ? "bg-white text-black border-white"
+                      : "text-[#888] border-[#333] hover:border-[#555] hover:text-white"
+                  }`}
+                >
+                  {p}
+                </button>
+              ))}
             </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-xs text-[#888] mb-1 block">Format</label>
               <select
@@ -154,10 +216,10 @@ export default function ContentIdeas() {
             />
           </div>
           <div className="flex gap-3">
-            <button onClick={add} className="bg-white text-black text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#e0e0e0]">
-              Add
+            <button onClick={submit} className="bg-white text-black text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#e0e0e0]">
+              {editingId ? "Save Changes" : "Add"}
             </button>
-            <button onClick={() => setShowForm(false)} className="text-[#888] text-sm px-4 py-2 hover:text-white">
+            <button onClick={cancelForm} className="text-[#888] text-sm px-4 py-2 hover:text-white">
               Cancel
             </button>
           </div>
@@ -176,7 +238,7 @@ export default function ContentIdeas() {
                 <p className="text-white text-sm font-medium leading-snug">{idea.concept}</p>
                 {idea.notes && <p className="text-[#666] text-xs mt-1.5 leading-relaxed">{idea.notes}</p>}
                 <div className="flex items-center gap-2 mt-3">
-                  <span className="text-[#555] text-xs">{idea.platform}</span>
+                  <span className="text-[#555] text-xs">{idea.platforms.join(", ") || "—"}</span>
                   <span className="text-[#333]">·</span>
                   <span className="text-[#555] text-xs">{idea.format}</span>
                   <span className="text-[#333]">·</span>
@@ -191,6 +253,9 @@ export default function ContentIdeas() {
                 >
                   {STATUSES.map((s) => <option key={s} value={s} className="bg-[#1a1a1a] text-white">{s}</option>)}
                 </select>
+                <button onClick={() => startEdit(idea)} className="text-[#444] hover:text-white transition-colors">
+                  <Pencil size={14} />
+                </button>
                 <button onClick={() => remove(idea.id)} className="text-[#444] hover:text-red-500 transition-colors">
                   <Trash2 size={14} />
                 </button>
