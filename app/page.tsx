@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, X, GripVertical } from "lucide-react";
+import { Plus, X, GripVertical, Pencil, Check } from "lucide-react";
 
 type Milestone = {
   id: string;
@@ -29,6 +29,8 @@ export default function Overview() {
   const [newDate, setNewDate] = useState("");
   const [dragId, setDragId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState<Milestone>({ id: "", date: "", label: "", done: false });
 
   useEffect(() => {
     const saved = localStorage.getItem("pb_timeline");
@@ -46,6 +48,21 @@ export default function Overview() {
 
   function remove(id: string) {
     saveMilestones(milestones.filter((m) => m.id !== id));
+  }
+
+  function startEdit(m: Milestone) {
+    setEditingId(m.id);
+    setDraft({ ...m });
+  }
+
+  function commitEdit() {
+    if (!editingId) return;
+    saveMilestones(milestones.map((m) => (m.id === editingId ? draft : m)));
+    setEditingId(null);
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
   }
 
   function add() {
@@ -104,35 +121,63 @@ export default function Overview() {
         )}
 
         <div className="space-y-1">
-          {active.map((m) => (
-            <div
-              key={m.id}
-              draggable
-              onDragStart={() => setDragId(m.id)}
-              onDragOver={(e) => handleDragOver(e, m.id)}
-              onDrop={() => handleDrop(m.id)}
-              onDragEnd={() => { setDragId(null); setDragOverId(null); }}
-              className={`flex items-center gap-3 group px-2 py-2 rounded-lg transition-colors cursor-default
-                ${dragOverId === m.id && dragId !== m.id ? "bg-[#1a1a1a]" : ""}
-                ${dragId === m.id ? "opacity-40" : ""}
-              `}
-            >
-              <GripVertical size={14} className="text-[#333] group-hover:text-[#555] cursor-grab shrink-0" />
-              <button
-                onClick={() => toggle(m.id)}
-                className="w-4 h-4 rounded-full border border-[#444] shrink-0 hover:border-white transition-colors"
-              />
-              <div className="flex-1 flex items-baseline justify-between">
-                <p className="text-sm text-white">{m.label}</p>
-                <div className="flex items-center gap-3 ml-4 shrink-0">
-                  <p className="text-xs text-[#555]">{m.date}</p>
-                  <button onClick={() => remove(m.id)} className="opacity-0 group-hover:opacity-100 transition-opacity text-[#444] hover:text-red-500">
-                    <X size={12} />
-                  </button>
-                </div>
+          {active.map((m) => {
+            const isEditing = editingId === m.id;
+            return (
+              <div
+                key={m.id}
+                draggable={!isEditing}
+                onDragStart={() => setDragId(m.id)}
+                onDragOver={(e) => handleDragOver(e, m.id)}
+                onDrop={() => handleDrop(m.id)}
+                onDragEnd={() => { setDragId(null); setDragOverId(null); }}
+                className={`flex items-center gap-3 group px-2 py-2 rounded-lg transition-colors cursor-default
+                  ${dragOverId === m.id && dragId !== m.id ? "bg-[#1a1a1a]" : ""}
+                  ${dragId === m.id ? "opacity-40" : ""}
+                `}
+              >
+                <GripVertical size={14} className="text-[#333] group-hover:text-[#555] cursor-grab shrink-0" />
+                <button
+                  onClick={() => toggle(m.id)}
+                  className="w-4 h-4 rounded-full border border-[#444] shrink-0 hover:border-white transition-colors"
+                />
+                {isEditing ? (
+                  <div className="flex-1 flex items-center justify-between gap-3">
+                    <input
+                      className="input flex-1"
+                      value={draft.label}
+                      onChange={(e) => setDraft({ ...draft, label: e.target.value })}
+                      onKeyDown={(e) => e.key === "Enter" && commitEdit()}
+                      autoFocus
+                    />
+                    <input
+                      className="input w-32 shrink-0"
+                      value={draft.date}
+                      onChange={(e) => setDraft({ ...draft, date: e.target.value })}
+                      onKeyDown={(e) => e.key === "Enter" && commitEdit()}
+                    />
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button onClick={commitEdit} className="text-green-400 hover:text-green-300"><Check size={14} /></button>
+                      <button onClick={cancelEdit} className="text-[#555] hover:text-white"><X size={14} /></button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex-1 flex items-baseline justify-between">
+                    <p className="text-sm text-white">{m.label}</p>
+                    <div className="flex items-center gap-3 ml-4 shrink-0">
+                      <p className="text-xs text-[#555]">{m.date}</p>
+                      <button onClick={() => startEdit(m)} className="opacity-0 group-hover:opacity-100 transition-opacity text-[#444] hover:text-white">
+                        <Pencil size={12} />
+                      </button>
+                      <button onClick={() => remove(m.id)} className="opacity-0 group-hover:opacity-100 transition-opacity text-[#444] hover:text-red-500">
+                        <X size={12} />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
@@ -141,18 +186,46 @@ export default function Overview() {
         <div className="bg-[#0d0d0d] border border-[#1a1a1a] rounded-xl p-6">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-[#444] mb-4">Completed</h2>
           <div className="space-y-3">
-            {completed.map((m) => (
-              <div key={m.id} className="flex items-center gap-3 group">
-                <button onClick={() => toggle(m.id)} className="w-4 h-4 rounded-full bg-[#333] shrink-0 hover:bg-[#444] transition-colors" />
-                <div className="flex-1 flex items-baseline justify-between">
-                  <p className="text-sm text-[#444] line-through">{m.label}</p>
-                  <div className="flex items-center gap-3 ml-4 shrink-0">
-                    <p className="text-xs text-[#333]">{m.date}</p>
-                    <button onClick={() => remove(m.id)} className="opacity-0 group-hover:opacity-100 transition-opacity text-[#333] hover:text-red-500"><X size={12} /></button>
-                  </div>
+            {completed.map((m) => {
+              const isEditing = editingId === m.id;
+              return (
+                <div key={m.id} className="flex items-center gap-3 group">
+                  <button onClick={() => toggle(m.id)} className="w-4 h-4 rounded-full bg-[#333] shrink-0 hover:bg-[#444] transition-colors" />
+                  {isEditing ? (
+                    <div className="flex-1 flex items-center justify-between gap-3">
+                      <input
+                        className="input flex-1"
+                        value={draft.label}
+                        onChange={(e) => setDraft({ ...draft, label: e.target.value })}
+                        onKeyDown={(e) => e.key === "Enter" && commitEdit()}
+                        autoFocus
+                      />
+                      <input
+                        className="input w-32 shrink-0"
+                        value={draft.date}
+                        onChange={(e) => setDraft({ ...draft, date: e.target.value })}
+                        onKeyDown={(e) => e.key === "Enter" && commitEdit()}
+                      />
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button onClick={commitEdit} className="text-green-400 hover:text-green-300"><Check size={14} /></button>
+                        <button onClick={cancelEdit} className="text-[#555] hover:text-white"><X size={14} /></button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex-1 flex items-baseline justify-between">
+                      <p className="text-sm text-[#444] line-through">{m.label}</p>
+                      <div className="flex items-center gap-3 ml-4 shrink-0">
+                        <p className="text-xs text-[#333]">{m.date}</p>
+                        <button onClick={() => startEdit(m)} className="opacity-0 group-hover:opacity-100 transition-opacity text-[#333] hover:text-white">
+                          <Pencil size={12} />
+                        </button>
+                        <button onClick={() => remove(m.id)} className="opacity-0 group-hover:opacity-100 transition-opacity text-[#333] hover:text-red-500"><X size={12} /></button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
