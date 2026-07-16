@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Trash2, Check } from "lucide-react";
+import { Plus, Trash2, Check, Pencil, X } from "lucide-react";
 
 type Category = "General" | "Ask Dylan" | "To Consider";
 
@@ -29,6 +29,8 @@ export default function Notes() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [filter, setFilter] = useState<Category | "All">("All");
   const [showResolved, setShowResolved] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState<Note>({ id: "", text: "", category: "General", resolved: false, createdAt: "" });
 
   useEffect(() => {
     const saved = localStorage.getItem("pb_notes");
@@ -53,6 +55,21 @@ export default function Notes() {
 
   function remove(id: string) {
     save(notes.filter((n) => n.id !== id));
+  }
+
+  function startEdit(note: Note) {
+    setEditingId(note.id);
+    setDraft({ ...note });
+  }
+
+  function commitEdit() {
+    if (!editingId || !draft.text.trim()) return;
+    save(notes.map((n) => (n.id === editingId ? draft : n)));
+    setEditingId(null);
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
   }
 
   const byCategory = filter === "All" ? notes : notes.filter((n) => n.category === filter);
@@ -151,32 +168,81 @@ export default function Notes() {
             {filter === "All" ? "No notes yet. Add your first above." : `No notes tagged "${filter}".`}
           </div>
         ) : (
-          visible.map((note) => (
-            <div
-              key={note.id}
-              className={`bg-[#111] border border-[#222] rounded-xl p-5 flex gap-4 items-start ${note.resolved ? "opacity-50" : ""}`}
-            >
-              <button
-                onClick={() => toggleResolved(note.id)}
-                className={`shrink-0 w-5 h-5 rounded-full border flex items-center justify-center mt-0.5 transition-colors ${
-                  note.resolved ? "bg-white border-white text-black" : "border-[#444] text-transparent hover:border-[#666]"
-                }`}
+          visible.map((note) => {
+            const isEditing = editingId === note.id;
+            return (
+              <div
+                key={note.id}
+                className={`bg-[#111] border border-[#222] rounded-xl p-5 flex gap-4 items-start ${note.resolved && !isEditing ? "opacity-50" : ""}`}
               >
-                <Check size={12} />
-              </button>
-              <div className="flex-1 min-w-0">
-                <p className={`text-white text-sm leading-snug ${note.resolved ? "line-through" : ""}`}>{note.text}</p>
-                <div className="flex items-center gap-2 mt-3">
-                  <span className={`text-xs px-2 py-0.5 rounded-full border ${CATEGORY_COLORS[note.category]}`}>{note.category}</span>
-                  <span className="text-[#333]">·</span>
-                  <span className="text-[#555] text-xs">{note.createdAt}</span>
+                {!isEditing && (
+                  <button
+                    onClick={() => toggleResolved(note.id)}
+                    className={`shrink-0 w-5 h-5 rounded-full border flex items-center justify-center mt-0.5 transition-colors ${
+                      note.resolved ? "bg-white border-white text-black" : "border-[#444] text-transparent hover:border-[#666]"
+                    }`}
+                  >
+                    <Check size={12} />
+                  </button>
+                )}
+                <div className="flex-1 min-w-0">
+                  {isEditing ? (
+                    <div className="space-y-3">
+                      <textarea
+                        className="w-full bg-[#1a1a1a] border border-[#333] rounded-lg px-3 py-2 text-sm text-white placeholder-[#555] focus:outline-none focus:border-[#555] resize-none"
+                        rows={3}
+                        value={draft.text}
+                        onChange={(e) => setDraft({ ...draft, text: e.target.value })}
+                        autoFocus
+                      />
+                      <div className="flex gap-2 flex-wrap">
+                        {CATEGORIES.map((c) => (
+                          <button
+                            key={c}
+                            type="button"
+                            onClick={() => setDraft({ ...draft, category: c })}
+                            className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                              draft.category === c
+                                ? "bg-white text-black border-white"
+                                : "text-[#888] border-[#333] hover:border-[#555] hover:text-white"
+                            }`}
+                          >
+                            {c}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <p className={`text-white text-sm leading-snug ${note.resolved ? "line-through" : ""}`}>{note.text}</p>
+                      <div className="flex items-center gap-2 mt-3">
+                        <span className={`text-xs px-2 py-0.5 rounded-full border ${CATEGORY_COLORS[note.category]}`}>{note.category}</span>
+                        <span className="text-[#333]">·</span>
+                        <span className="text-[#555] text-xs">{note.createdAt}</span>
+                      </div>
+                    </>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {isEditing ? (
+                    <>
+                      <button onClick={commitEdit} className="text-green-400 hover:text-green-300"><Check size={14} /></button>
+                      <button onClick={cancelEdit} className="text-[#555] hover:text-white"><X size={14} /></button>
+                    </>
+                  ) : (
+                    <>
+                      <button onClick={() => startEdit(note)} className="text-[#444] hover:text-white transition-colors">
+                        <Pencil size={14} />
+                      </button>
+                      <button onClick={() => remove(note.id)} className="text-[#444] hover:text-red-500 transition-colors">
+                        <Trash2 size={14} />
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
-              <button onClick={() => remove(note.id)} className="text-[#444] hover:text-red-500 transition-colors shrink-0">
-                <Trash2 size={14} />
-              </button>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>
