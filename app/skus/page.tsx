@@ -15,6 +15,25 @@ type SKU = {
   retailPrice: number;
   unitsInInventory: number;
   samplesInInventory: number;
+  dylanFernando?: number;
+};
+
+type ProfitAssumptions = {
+  customerDiscountPct: number;
+  opsCostPct: number;
+  marketingCostPct: number;
+  factorToSell: number;
+  kickstarterFeePct: number;
+  backerkitFeePct: number;
+};
+
+const DEFAULT_ASSUMPTIONS: ProfitAssumptions = {
+  customerDiscountPct: 0,
+  opsCostPct: 20,
+  marketingCostPct: 30,
+  factorToSell: 4,
+  kickstarterFeePct: 10,
+  backerkitFeePct: 2,
 };
 
 type Color = { id: string; name: string; hex: string };
@@ -29,15 +48,15 @@ const DEFAULT_COLORS: Color[] = [
 ];
 
 const DEFAULT_SKUS: SKU[] = [
-  { id: "9pb", parentId: null, name: "9 Pocket Binder", colorHex: "", unitPrice: 14, estShipping: 0, estDuties: 0, estPackaging: 0, retailPrice: 60, unitsInInventory: 0, samplesInInventory: 0 },
+  { id: "9pb", parentId: null, name: "9 Pocket Binder", colorHex: "", unitPrice: 14, estShipping: 0, estDuties: 0, estPackaging: 0, retailPrice: 60, unitsInInventory: 0, samplesInInventory: 0, dylanFernando: 3 },
   { id: "9pb-obsidian", parentId: "9pb", name: "Obsidian", colorHex: "#1a1a1a", unitPrice: 0, estShipping: 0, estDuties: 0, estPackaging: 0, retailPrice: 0, unitsInInventory: 0, samplesInInventory: 0 },
   { id: "9pb-pearl", parentId: "9pb", name: "Pearl", colorHex: "#e8e8e8", unitPrice: 0, estShipping: 0, estDuties: 0, estPackaging: 0, retailPrice: 0, unitsInInventory: 0, samplesInInventory: 0 },
   { id: "9pb-rose", parentId: "9pb", name: "Rose", colorHex: "#d4a0a0", unitPrice: 0, estShipping: 0, estDuties: 0, estPackaging: 0, retailPrice: 0, unitsInInventory: 0, samplesInInventory: 0 },
   { id: "9pb-crimson", parentId: "9pb", name: "Crimson", colorHex: "#8b0000", unitPrice: 0, estShipping: 0, estDuties: 0, estPackaging: 0, retailPrice: 0, unitsInInventory: 0, samplesInInventory: 0 },
-  { id: "12pb", parentId: null, name: "12 Pocket Binder", colorHex: "", unitPrice: 16.75, estShipping: 0, estDuties: 0, estPackaging: 0, retailPrice: 70, unitsInInventory: 0, samplesInInventory: 0 },
-  { id: "cb", parentId: null, name: "Card Box", colorHex: "", unitPrice: 7.5, estShipping: 0, estDuties: 0, estPackaging: 0, retailPrice: 35, unitsInInventory: 0, samplesInInventory: 0 },
-  { id: "fm9pb", parentId: null, name: "FindMy 9PB", colorHex: "", unitPrice: 19, estShipping: 0, estDuties: 0, estPackaging: 0, retailPrice: 80, unitsInInventory: 0, samplesInInventory: 0 },
-  { id: "fmcb", parentId: null, name: "FindMy Card Box", colorHex: "", unitPrice: 12.5, estShipping: 0, estDuties: 0, estPackaging: 0, retailPrice: 55, unitsInInventory: 0, samplesInInventory: 0 },
+  { id: "12pb", parentId: null, name: "12 Pocket Binder", colorHex: "", unitPrice: 16.75, estShipping: 0, estDuties: 0, estPackaging: 0, retailPrice: 70, unitsInInventory: 0, samplesInInventory: 0, dylanFernando: 3.5 },
+  { id: "cb", parentId: null, name: "Card Box", colorHex: "", unitPrice: 7.5, estShipping: 0, estDuties: 0, estPackaging: 0, retailPrice: 35, unitsInInventory: 0, samplesInInventory: 0, dylanFernando: 1 },
+  { id: "fm9pb", parentId: null, name: "FindMy 9PB", colorHex: "", unitPrice: 19, estShipping: 0, estDuties: 0, estPackaging: 0, retailPrice: 80, unitsInInventory: 0, samplesInInventory: 0, dylanFernando: 3.5 },
+  { id: "fmcb", parentId: null, name: "FindMy Card Box", colorHex: "", unitPrice: 12.5, estShipping: 0, estDuties: 0, estPackaging: 0, retailPrice: 55, unitsInInventory: 0, samplesInInventory: 0, dylanFernando: 1.5 },
 ];
 
 function fmt(n: number) {
@@ -45,7 +64,7 @@ function fmt(n: number) {
 }
 
 export default function SKUs() {
-  const [tab, setTab] = useState<"products" | "colors">("products");
+  const [tab, setTab] = useState<"products" | "colors" | "profitability">("products");
   const [skus, setSkus] = useState<SKU[]>([]);
   const [colors, setColors] = useState<Color[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -53,7 +72,8 @@ export default function SKUs() {
   const [addingColorTo, setAddingColorTo] = useState<string | null>(null);
   const [selectedColorId, setSelectedColorId] = useState("");
   const [showNewParent, setShowNewParent] = useState(false);
-  const [parentForm, setParentForm] = useState({ name: "", unitPrice: "", estShipping: "", estDuties: "", estPackaging: "", retailPrice: "" });
+  const [parentForm, setParentForm] = useState({ name: "", unitPrice: "", estShipping: "", estDuties: "", estPackaging: "", retailPrice: "", dylanFernando: "" });
+  const [assumptions, setAssumptions] = useState<ProfitAssumptions>(DEFAULT_ASSUMPTIONS);
 
   // Colors tab state
   const [editingColorId, setEditingColorId] = useState<string | null>(null);
@@ -76,6 +96,9 @@ export default function SKUs() {
     const loadedColors: Color[] = savedColors ? JSON.parse(savedColors) : DEFAULT_COLORS;
     setColors(loadedColors);
     if (loadedColors.length) setSelectedColorId(loadedColors[0].id);
+
+    const savedAssumptions = localStorage.getItem("pb_profit_assumptions");
+    if (savedAssumptions) setAssumptions({ ...DEFAULT_ASSUMPTIONS, ...JSON.parse(savedAssumptions) });
 
     const savedInbounds = localStorage.getItem("pb_inbounds");
     if (savedInbounds) {
@@ -102,6 +125,19 @@ export default function SKUs() {
   function saveColors(updated: Color[]) {
     setColors(updated);
     localStorage.setItem("pb_colors", JSON.stringify(updated));
+  }
+
+  function saveAssumptions(updated: ProfitAssumptions) {
+    setAssumptions(updated);
+    localStorage.setItem("pb_profit_assumptions", JSON.stringify(updated));
+  }
+
+  function updateDylanFernando(id: string, value: number) {
+    saveSkus(skus.map((s) => (s.id === id ? { ...s, dylanFernando: value } : s)));
+  }
+
+  function updateRetailPrice(id: string, value: number) {
+    saveSkus(skus.map((s) => (s.id === id ? { ...s, retailPrice: value } : s)));
   }
 
   function startEdit(s: SKU) { setEditingId(s.id); setDraft({ ...s }); }
@@ -134,9 +170,10 @@ export default function SKUs() {
       estDuties: +parentForm.estDuties || 0, estPackaging: +parentForm.estPackaging || 0,
       retailPrice: +parentForm.retailPrice || 0,
       unitsInInventory: 0, samplesInInventory: 0,
+      dylanFernando: +parentForm.dylanFernando || 0,
     };
     saveSkus([...skus, newParent]);
-    setParentForm({ name: "", unitPrice: "", estShipping: "", estDuties: "", estPackaging: "", retailPrice: "" });
+    setParentForm({ name: "", unitPrice: "", estShipping: "", estDuties: "", estPackaging: "", retailPrice: "", dylanFernando: "" });
     setShowNewParent(false);
   }
 
@@ -181,7 +218,7 @@ export default function SKUs() {
 
       {/* Tab bar */}
       <div className="flex gap-1 border-b border-[#222]">
-        {(["products", "colors"] as const).map((key) => (
+        {(["products", "colors", "profitability"] as const).map((key) => (
           <button
             key={key}
             onClick={() => setTab(key)}
@@ -223,7 +260,7 @@ export default function SKUs() {
                   <label className="text-xs text-[#888] mb-1 block">Product Name</label>
                   <input className="input w-full" placeholder="9 Pocket Binder" value={parentForm.name} onChange={(e) => setParentForm({ ...parentForm, name: e.target.value })} />
                 </div>
-                {[["unitPrice","Unit Price ($)"],["estShipping","Est. Shipping ($)"],["estDuties","Est. Duties ($)"],["estPackaging","Est. Packaging ($)"],["retailPrice","Retail Price ($)"]].map(([key, label]) => (
+                {[["unitPrice","Unit Price ($)"],["estShipping","Est. Shipping ($)"],["estDuties","Est. Duties ($)"],["estPackaging","Est. Packaging ($)"],["retailPrice","Retail Price ($)"],["dylanFernando","Dylan/Fernando ($)"]].map(([key, label]) => (
                   <div key={key}>
                     <label className="text-xs text-[#888] mb-1 block">{label}</label>
                     <input type="number" className="input w-full" placeholder="0" value={(parentForm as Record<string, string>)[key]} onChange={(e) => setParentForm({ ...parentForm, [key]: e.target.value })} />
@@ -432,6 +469,107 @@ export default function SKUs() {
                           )}
                         </div>
                       </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {tab === "profitability" && (
+        <div className="space-y-6">
+          <div className="bg-[#111] border border-[#222] rounded-xl p-5">
+            <h2 className="text-xs font-semibold text-[#888] uppercase tracking-wider mb-4">Assumptions</h2>
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+              {([
+                ["customerDiscountPct", "Customer Discount %"],
+                ["factorToSell", "Factor to Sell"],
+                ["opsCostPct", "Ops Cost %"],
+                ["marketingCostPct", "Marketing Cost %"],
+                ["kickstarterFeePct", "Kickstarter Fee %"],
+                ["backerkitFeePct", "BackerKit Fee %"],
+              ] as const).map(([key, label]) => (
+                <div key={key}>
+                  <label className="text-xs text-[#888] mb-1 block">{label}</label>
+                  <input
+                    type="number"
+                    className="input w-full"
+                    value={assumptions[key]}
+                    onChange={(e) => saveAssumptions({ ...assumptions, [key]: +e.target.value })}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-[#111] border border-[#222] rounded-xl overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[#222] text-[#555] text-xs uppercase tracking-wider whitespace-nowrap">
+                  <th className="text-left px-4 py-3">Product</th>
+                  <th className="text-left px-4 py-3">Landed Cost</th>
+                  <th className="text-left px-4 py-3">Ideal Sell</th>
+                  <th className="text-left px-4 py-3">Realistic Sell</th>
+                  <th className="text-left px-4 py-3">W/ Discount</th>
+                  <th className="text-left px-4 py-3">Rev − COGS</th>
+                  <th className="text-left px-4 py-3">COGS %</th>
+                  <th className="text-left px-4 py-3">Ops Cost</th>
+                  <th className="text-left px-4 py-3">Marketing</th>
+                  <th className="text-left px-4 py-3">Dylan/Fern.</th>
+                  <th className="text-left px-4 py-3">KS Fee</th>
+                  <th className="text-left px-4 py-3">BackerKit</th>
+                  <th className="text-left px-4 py-3">Profit/Unit</th>
+                  <th className="text-left px-4 py-3">Profit %</th>
+                </tr>
+              </thead>
+              <tbody>
+                {parents.map((p) => {
+                  const landed = p.unitPrice + p.estShipping + p.estDuties + p.estPackaging;
+                  const ideal = landed * assumptions.factorToSell;
+                  const realistic = p.retailPrice;
+                  const discounted = realistic * (1 - assumptions.customerDiscountPct / 100);
+                  const revenueMinusCogs = discounted - landed;
+                  const cogsPct = discounted !== 0 ? (landed / discounted) * 100 : 0;
+                  const opsCost = discounted * (assumptions.opsCostPct / 100);
+                  const marketingCost = realistic * (assumptions.marketingCostPct / 100);
+                  const dylanFernando = p.dylanFernando ?? 0;
+                  const ksFee = discounted * (assumptions.kickstarterFeePct / 100);
+                  const bkFee = discounted * (assumptions.backerkitFeePct / 100);
+                  const profit = discounted - landed - opsCost - marketingCost - dylanFernando - ksFee - bkFee;
+                  const profitPct = discounted !== 0 ? (profit / discounted) * 100 : 0;
+
+                  return (
+                    <tr key={p.id} className="border-b border-[#1a1a1a] hover:bg-[#151515] whitespace-nowrap">
+                      <td className="px-4 py-3 text-white font-medium">{p.name}</td>
+                      <td className="px-4 py-3 text-[#888]">{fmt(landed)}</td>
+                      <td className="px-4 py-3 text-[#888]">{fmt(ideal)}</td>
+                      <td className="px-4 py-3">
+                        <input
+                          type="number"
+                          className="input w-20"
+                          value={realistic}
+                          onChange={(e) => updateRetailPrice(p.id, +e.target.value)}
+                        />
+                      </td>
+                      <td className="px-4 py-3 text-[#888]">{fmt(discounted)}</td>
+                      <td className="px-4 py-3 text-[#888]">{fmt(revenueMinusCogs)}</td>
+                      <td className="px-4 py-3 text-[#888]">{cogsPct.toFixed(2)}%</td>
+                      <td className="px-4 py-3 text-[#888]">{fmt(opsCost)}</td>
+                      <td className="px-4 py-3 text-[#888]">{fmt(marketingCost)}</td>
+                      <td className="px-4 py-3">
+                        <input
+                          type="number"
+                          className="input w-16"
+                          value={dylanFernando}
+                          onChange={(e) => updateDylanFernando(p.id, +e.target.value)}
+                        />
+                      </td>
+                      <td className="px-4 py-3 text-[#888]">{fmt(ksFee)}</td>
+                      <td className="px-4 py-3 text-[#888]">{fmt(bkFee)}</td>
+                      <td className="px-4 py-3 text-green-400 font-medium">{fmt(profit)}</td>
+                      <td className="px-4 py-3 text-green-400">{profitPct.toFixed(2)}%</td>
                     </tr>
                   );
                 })}
