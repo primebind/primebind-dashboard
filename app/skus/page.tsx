@@ -568,8 +568,8 @@ export default function SKUs() {
                       </td>
                       <td className="px-4 py-3 text-[#888]">{fmt(ksFee)}</td>
                       <td className="px-4 py-3 text-[#888]">{fmt(bkFee)}</td>
-                      <td className="px-4 py-3 text-green-400 font-medium">{fmt(profit)}</td>
-                      <td className="px-4 py-3 text-green-400">{profitPct.toFixed(2)}%</td>
+                      <td className={`px-4 py-3 font-medium ${profit < 0 ? "text-red-400" : "text-green-400"}`}>{fmt(profit)}</td>
+                      <td className={`px-4 py-3 ${profitPct < 0 ? "text-red-400" : "text-green-400"}`}>{profitPct.toFixed(2)}%</td>
                     </tr>
                   );
                 })}

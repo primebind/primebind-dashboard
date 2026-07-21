@@ -13,8 +13,53 @@ type TierItem = { skuId: string; qty: number };
 type Tier = { id: string; name: string; price: number; contents: TierItem[]; slots: number; note: string };
 type Addon = { id: string; skuId: string; price: number; note: string };
 type Unlockable = { id: string; refType: "color" | "sku"; refId: string; milestone: number; description: string; unlocked: boolean };
-type SKU = { id: string; parentId: string | null; name: string; retailPrice: number };
+type SKU = {
+  id: string;
+  parentId: string | null;
+  name: string;
+  retailPrice: number;
+  unitPrice: number;
+  estShipping: number;
+  estDuties: number;
+  estPackaging: number;
+  dylanFernando?: number;
+};
 type Color = { id: string; name: string; hex: string };
+
+type ProfitAssumptions = {
+  customerDiscountPct: number;
+  opsCostPct: number;
+  marketingCostPct: number;
+  factorToSell: number;
+  kickstarterFeePct: number;
+  backerkitFeePct: number;
+};
+
+const DEFAULT_ASSUMPTIONS: ProfitAssumptions = {
+  customerDiscountPct: 0,
+  opsCostPct: 20,
+  marketingCostPct: 30,
+  factorToSell: 4,
+  kickstarterFeePct: 10,
+  backerkitFeePct: 2,
+};
+
+function landedCost(sku: SKU | undefined): number {
+  if (!sku) return 0;
+  return (sku.unitPrice || 0) + (sku.estShipping || 0) + (sku.estDuties || 0) + (sku.estPackaging || 0);
+}
+
+function calcBundleLanded(contents: TierItem[], skus: SKU[]): number {
+  return contents.reduce((sum, item) => sum + landedCost(skus.find((s) => s.id === item.skuId)) * item.qty, 0);
+}
+
+function calcBundleDylanFernando(contents: TierItem[], skus: SKU[]): number {
+  return contents.reduce((sum, item) => sum + (skus.find((s) => s.id === item.skuId)?.dylanFernando || 0) * item.qty, 0);
+}
+
+function fmt(n: number) {
+  return n === 0 ? "—" : `$${n % 1 === 0 ? n : n.toFixed(2)}`;
+}
 
 const DEFAULT_COLORS: Color[] = [
   { id: "obsidian", name: "Obsidian", hex: "#1a1a1a" },
@@ -291,11 +336,13 @@ function UnlockableRow({ item, skus, colors, onSave, onDelete }: { item: Unlocka
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function Kickstarter() {
+  const [tab, setTab] = useState<"tiers" | "addons" | "stretch" | "profitability">("tiers");
   const [tiers, setTiers] = useState<Tier[]>([]);
   const [addons, setAddons] = useState<Addon[]>([]);
   const [unlockables, setUnlockables] = useState<Unlockable[]>([]);
   const [skus, setSkus] = useState<SKU[]>([]);
   const [colors, setColors] = useState<Color[]>([]);
+  const [assumptions, setAssumptions] = useState<ProfitAssumptions>(DEFAULT_ASSUMPTIONS);
   const [ksFee, setKsFee] = useState(DEFAULT_KS_FEE);
   const [blendedLow, setBlendedLow] = useState(DEFAULT_BLENDED_LOW);
   const [blendedHigh, setBlendedHigh] = useState(DEFAULT_BLENDED_HIGH);
@@ -317,6 +364,9 @@ export default function Kickstarter() {
 
     const rawColors = localStorage.getItem("pb_colors");
     setColors(rawColors ? JSON.parse(rawColors) : DEFAULT_COLORS);
+
+    const rawAssumptions = localStorage.getItem("pb_profit_assumptions");
+    if (rawAssumptions) setAssumptions({ ...DEFAULT_ASSUMPTIONS, ...JSON.parse(rawAssumptions) });
 
     const fee = localStorage.getItem("pb_ks_fee");
     if (fee) setKsFee(parseFloat(fee));
@@ -496,7 +546,23 @@ export default function Kickstarter() {
         </div>
       </div>
 
+      {/* Tab bar */}
+      <div className="flex gap-1 border-b border-[#222]">
+        {(["tiers", "addons", "stretch", "profitability"] as const).map((key) => (
+          <button
+            key={key}
+            onClick={() => setTab(key)}
+            className={`px-4 py-2 text-sm font-medium capitalize transition-colors border-b-2 -mb-px ${
+              tab === key ? "text-white border-white" : "text-[#555] border-transparent hover:text-[#888]"
+            }`}
+          >
+            {key === "addons" ? "Add-ons" : key === "stretch" ? "Stretch Goals" : key}
+          </button>
+        ))}
+      </div>
+
       {/* Tiers */}
+      {tab === "tiers" && (
       <section>
         <div className="flex items-center justify-between mb-3">
           <div>
@@ -530,8 +596,10 @@ export default function Kickstarter() {
           </table>
         </div>
       </section>
+      )}
 
       {/* Add-ons */}
+      {tab === "addons" && (
       <section>
         <div className="flex items-center justify-between mb-3">
           <div>
@@ -557,8 +625,10 @@ export default function Kickstarter() {
           </table>
         </div>
       </section>
+      )}
 
       {/* Stretch Goals */}
+      {tab === "stretch" && (
       <section>
         <div className="flex items-center justify-between mb-3">
           <div>
@@ -591,6 +661,64 @@ export default function Kickstarter() {
           </table>
         </div>
       </section>
+      )}
+
+      {/* Profitability */}
+      {tab === "profitability" && (
+      <section>
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h2 className="text-sm font-semibold text-white uppercase tracking-wider">Profitability</h2>
+            <p className="text-[#555] text-xs mt-0.5">Per-tier profit using bundle contents' landed cost — reuses the assumptions from SKUs → Profitability</p>
+          </div>
+        </div>
+        <div className="bg-[#111] border border-[#222] rounded-xl overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-[#222] text-[#555] text-xs uppercase tracking-wider whitespace-nowrap">
+                <th className="text-left px-4 py-3">Tier</th>
+                <th className="text-left px-4 py-3">Price</th>
+                <th className="text-left px-4 py-3">Bundle Landed</th>
+                <th className="text-left px-4 py-3">Ops Cost</th>
+                <th className="text-left px-4 py-3">Marketing</th>
+                <th className="text-left px-4 py-3">Dylan/Fern.</th>
+                <th className="text-left px-4 py-3">KS Fee</th>
+                <th className="text-left px-4 py-3">BackerKit</th>
+                <th className="text-left px-4 py-3">Profit</th>
+                <th className="text-left px-4 py-3">Profit %</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tiers.map((t) => {
+                const bundleLanded = calcBundleLanded(t.contents, skus);
+                const bundleDylanFernando = calcBundleDylanFernando(t.contents, skus);
+                const opsCost = t.price * (assumptions.opsCostPct / 100);
+                const marketingCost = t.price * (assumptions.marketingCostPct / 100);
+                const ksFeeAmt = t.price * (assumptions.kickstarterFeePct / 100);
+                const bkFeeAmt = t.price * (assumptions.backerkitFeePct / 100);
+                const profit = t.price - bundleLanded - opsCost - marketingCost - bundleDylanFernando - ksFeeAmt - bkFeeAmt;
+                const profitPct = t.price !== 0 ? (profit / t.price) * 100 : 0;
+
+                return (
+                  <tr key={t.id} className="border-b border-[#1a1a1a] hover:bg-[#151515] whitespace-nowrap">
+                    <td className="px-4 py-3 text-white font-medium">{t.name}</td>
+                    <td className="px-4 py-3 text-[#888]">${t.price}</td>
+                    <td className="px-4 py-3 text-[#888]">{fmt(bundleLanded)}</td>
+                    <td className="px-4 py-3 text-[#888]">{fmt(opsCost)}</td>
+                    <td className="px-4 py-3 text-[#888]">{fmt(marketingCost)}</td>
+                    <td className="px-4 py-3 text-[#888]">{fmt(bundleDylanFernando)}</td>
+                    <td className="px-4 py-3 text-[#888]">{fmt(ksFeeAmt)}</td>
+                    <td className="px-4 py-3 text-[#888]">{fmt(bkFeeAmt)}</td>
+                    <td className={`px-4 py-3 font-medium ${profit < 0 ? "text-red-400" : "text-green-400"}`}>{fmt(profit)}</td>
+                    <td className={`px-4 py-3 ${profitPct < 0 ? "text-red-400" : "text-green-400"}`}>{profitPct.toFixed(2)}%</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      )}
     </div>
   );
 }
