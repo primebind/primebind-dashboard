@@ -16,6 +16,7 @@ type SKU = {
   unitsInInventory: number;
   samplesInInventory: number;
   dylanFernando?: number;
+  isInventoryItem?: boolean;
 };
 
 type ProfitAssumptions = {
@@ -80,7 +81,7 @@ export default function SKUs() {
   const [addingColorTo, setAddingColorTo] = useState<string | null>(null);
   const [selectedColorId, setSelectedColorId] = useState("");
   const [showNewParent, setShowNewParent] = useState(false);
-  const [parentForm, setParentForm] = useState({ name: "", unitPrice: "", estShipping: "", estDuties: "", estPackaging: "", retailPrice: "", dylanFernando: "" });
+  const [parentForm, setParentForm] = useState({ name: "", unitPrice: "", estShipping: "", estDuties: "", estPackaging: "", retailPrice: "", dylanFernando: "", isInventoryItem: true });
   const [assumptions, setAssumptions] = useState<ProfitAssumptions>(DEFAULT_ASSUMPTIONS);
 
   // Colors tab state
@@ -151,7 +152,7 @@ export default function SKUs() {
   function updateFactorToSell(newFactor: number) {
     saveAssumptions({ ...assumptions, factorToSell: newFactor });
     saveSkus(skus.map((s) => {
-      if (s.parentId !== null) return s;
+      if (s.parentId !== null || s.isInventoryItem === false) return s;
       const landed = s.unitPrice + s.estShipping + s.estDuties + s.estPackaging;
       return { ...s, retailPrice: roundUpToTen(landed * newFactor) };
     }));
@@ -188,9 +189,10 @@ export default function SKUs() {
       retailPrice: +parentForm.retailPrice || 0,
       unitsInInventory: 0, samplesInInventory: 0,
       dylanFernando: +parentForm.dylanFernando || 0,
+      isInventoryItem: parentForm.isInventoryItem,
     };
     saveSkus([...skus, newParent]);
-    setParentForm({ name: "", unitPrice: "", estShipping: "", estDuties: "", estPackaging: "", retailPrice: "", dylanFernando: "" });
+    setParentForm({ name: "", unitPrice: "", estShipping: "", estDuties: "", estPackaging: "", retailPrice: "", dylanFernando: "", isInventoryItem: true });
     setShowNewParent(false);
   }
 
@@ -280,10 +282,18 @@ export default function SKUs() {
                 {[["unitPrice","Unit Price ($)"],["estShipping","Est. Shipping ($)"],["estDuties","Est. Duties ($)"],["estPackaging","Est. Packaging ($)"],["retailPrice","Retail Price ($)"],["dylanFernando","Dylan/Fernando ($)"]].map(([key, label]) => (
                   <div key={key}>
                     <label className="text-xs text-[#888] mb-1 block">{label}</label>
-                    <input type="number" className="input w-full" placeholder="0" value={(parentForm as Record<string, string>)[key]} onChange={(e) => setParentForm({ ...parentForm, [key]: e.target.value })} />
+                    <input type="number" className="input w-full" placeholder="0" value={(parentForm as unknown as Record<string, string>)[key]} onChange={(e) => setParentForm({ ...parentForm, [key]: e.target.value })} />
                   </div>
                 ))}
               </div>
+              <label className="flex items-center gap-2 text-xs text-[#888] cursor-pointer w-fit">
+                <input
+                  type="checkbox"
+                  checked={parentForm.isInventoryItem}
+                  onChange={(e) => setParentForm({ ...parentForm, isInventoryItem: e.target.checked })}
+                />
+                Inventory item (uncheck for pass-through items like shipping or bonus freebies — no Ops/Marketing/KS Fee/BackerKit Fee, no Factor to Sell repricing)
+              </label>
               <div className="flex gap-3">
                 <button onClick={addParent} className="bg-white text-black text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#e0e0e0]">Add</button>
                 <button onClick={() => setShowNewParent(false)} className="text-[#888] text-sm px-4 py-2 hover:text-white">Cancel</button>
@@ -316,6 +326,16 @@ export default function SKUs() {
                               <input type="number" className="input w-16" value={(draft as Record<string, number>)[field] ?? 0} onChange={(e) => setDraft({ ...draft, [field]: +e.target.value })} />
                             </div>
                           ))}
+                          <div className="flex flex-col gap-0.5 justify-end pb-1.5">
+                            <label className="flex items-center gap-1.5 text-[10px] text-[#555] whitespace-nowrap cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={draft.isInventoryItem ?? true}
+                                onChange={(e) => setDraft({ ...draft, isInventoryItem: e.target.checked })}
+                              />
+                              Inventory item
+                            </label>
+                          </div>
                         </div>
                         <div className="flex gap-2 ml-2 shrink-0">
                           <button onClick={commitEdit} className="text-green-400 hover:text-green-300"><Check size={15} /></button>
@@ -324,6 +344,9 @@ export default function SKUs() {
                       </>
                     ) : (
                       <>
+                        {parent.isInventoryItem === false && (
+                          <span className="text-[10px] text-yellow-400 border border-yellow-400/30 bg-yellow-400/10 rounded-full px-2 py-0.5 shrink-0">Non-Inventory</span>
+                        )}
                         {[["Unit Price", fmt(parent.unitPrice)],["Est. Shipping", fmt(parent.estShipping)],["Est. Duties", fmt(parent.estDuties)],["Est. Packaging", fmt(parent.estPackaging)]].map(([label, val]) => (
                           <div key={label} className="flex flex-col gap-0.5">
                             <span className="text-[10px] text-[#555]">{label}</span>
@@ -546,25 +569,26 @@ export default function SKUs() {
               </thead>
               <tbody>
                 {parents.map((p) => {
+                  const isInventory = p.isInventoryItem !== false;
                   const landed = p.unitPrice + p.estShipping + p.estDuties + p.estPackaging;
-                  const ideal = landed * assumptions.factorToSell;
+                  const ideal = isInventory ? landed * assumptions.factorToSell : null;
                   const realistic = p.retailPrice;
                   const discounted = realistic * (1 - assumptions.customerDiscountPct / 100);
                   const revenueMinusCogs = discounted - landed;
                   const cogsPct = discounted !== 0 ? (landed / discounted) * 100 : 0;
-                  const opsCost = assumptions.opsCostFixed + discounted * (assumptions.opsCostPct / 100);
-                  const marketingCost = assumptions.marketingCostFixed + realistic * (assumptions.marketingCostPct / 100);
+                  const opsCost = isInventory ? assumptions.opsCostFixed + discounted * (assumptions.opsCostPct / 100) : 0;
+                  const marketingCost = isInventory ? assumptions.marketingCostFixed + realistic * (assumptions.marketingCostPct / 100) : 0;
                   const dylanFernando = p.dylanFernando ?? 0;
-                  const ksFee = discounted * (assumptions.kickstarterFeePct / 100);
-                  const bkFee = discounted * (assumptions.backerkitFeePct / 100);
+                  const ksFee = isInventory ? discounted * (assumptions.kickstarterFeePct / 100) : 0;
+                  const bkFee = isInventory ? discounted * (assumptions.backerkitFeePct / 100) : 0;
                   const profit = discounted - landed - opsCost - marketingCost - dylanFernando - ksFee - bkFee;
                   const profitPct = discounted !== 0 ? (profit / discounted) * 100 : 0;
 
                   return (
                     <tr key={p.id} className="border-b border-[#1a1a1a] hover:bg-[#151515] whitespace-nowrap">
-                      <td className="px-4 py-3 text-white font-medium">{p.name}</td>
+                      <td className="px-4 py-3 text-white font-medium">{p.name}{!isInventory && <span className="ml-2 text-[10px] text-yellow-400 border border-yellow-400/30 bg-yellow-400/10 rounded-full px-2 py-0.5">Non-Inv.</span>}</td>
                       <td className="px-4 py-3 text-[#888]">{fmt(landed)}</td>
-                      <td className="px-4 py-3 text-[#888]">{fmt(ideal)}</td>
+                      <td className="px-4 py-3 text-[#888]">{ideal === null ? "—" : fmt(ideal)}</td>
                       <td className="px-4 py-3">
                         <input
                           type="number"

@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { Plus, Trash2, Pencil, Check, X } from "lucide-react";
 
-const DEFAULT_KS_FEE = 0.12;
 const DEFAULT_KS_GOAL = 25000;
 const DEFAULT_BREAKEVEN = 20000;
 
@@ -110,7 +109,7 @@ function contentsLabel(contents: TierItem[], skus: SKU[]): string {
 }
 
 // ── Tier row ──────────────────────────────────────────────────────────────────
-function TierRow({ tier, skus, ksFee, onSave, onDelete }: { tier: Tier; skus: SKU[]; ksFee: number; onSave: (t: Tier) => void; onDelete: () => void }) {
+function TierRow({ tier, skus, onSave, onDelete }: { tier: Tier; skus: SKU[]; onSave: (t: Tier) => void; onDelete: () => void }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<Tier>(tier);
   const [addSkuId, setAddSkuId] = useState("");
@@ -175,7 +174,6 @@ function TierRow({ tier, skus, ksFee, onSave, onDelete }: { tier: Tier; skus: SK
         </td>
         <td className="px-4 py-3 text-[#555] text-sm">${draftRetail || "—"}</td>
         <td className="px-4 py-3 text-[#555] text-xs">—</td>
-        <td className="px-4 py-3 text-[#555] text-xs">—</td>
         <td className="px-4 py-3">
           <input type="number" className="input w-16" placeholder="∞" value={draft.slots || ""} onChange={(e) => setDraft({ ...draft, slots: +e.target.value })} />
         </td>
@@ -205,7 +203,6 @@ function TierRow({ tier, skus, ksFee, onSave, onDelete }: { tier: Tier; skus: SK
           </div>
         )}
       </td>
-      <td className="px-4 py-4 text-[#888] text-sm">${(tier.price * (1 - ksFee)).toFixed(2)}</td>
       <td className="px-4 py-4 text-[#555] text-xs">{tier.slots > 0 ? tier.slots : "∞"}</td>
       <td className="px-4 py-4">
         <div className="flex gap-2">
@@ -345,13 +342,10 @@ export default function Kickstarter() {
   const [skus, setSkus] = useState<SKU[]>([]);
   const [colors, setColors] = useState<Color[]>([]);
   const [assumptions, setAssumptions] = useState<ProfitAssumptions>(DEFAULT_ASSUMPTIONS);
-  const [ksFee, setKsFee] = useState(DEFAULT_KS_FEE);
   const [ksGoal, setKsGoal] = useState(DEFAULT_KS_GOAL);
   const [breakeven, setBreakeven] = useState(DEFAULT_BREAKEVEN);
-  const [editingFee, setEditingFee] = useState(false);
   const [editingGoal, setEditingGoal] = useState(false);
   const [editingBreakeven, setEditingBreakeven] = useState(false);
-  const [feeDraft, setFeeDraft] = useState("");
   const [goalDraft, setGoalDraft] = useState("");
   const [breakevenDraft, setBreakevenDraft] = useState("");
 
@@ -364,9 +358,6 @@ export default function Kickstarter() {
 
     const rawAssumptions = localStorage.getItem("pb_profit_assumptions");
     if (rawAssumptions) setAssumptions({ ...DEFAULT_ASSUMPTIONS, ...JSON.parse(rawAssumptions) });
-
-    const fee = localStorage.getItem("pb_ks_fee");
-    if (fee) setKsFee(parseFloat(fee));
 
     const goal = localStorage.getItem("pb_ks_goal");
     if (goal) setKsGoal(parseInt(goal));
@@ -428,7 +419,7 @@ export default function Kickstarter() {
         <p className="text-[#888] text-sm mt-1">Tiers, add-ons, and stretch goals — Sept 1, 2026</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-4">
         {/* KS Goal — editable */}
         <div className="bg-[#111] border border-[#222] rounded-xl p-5">
           <p className="text-[#888] text-xs uppercase tracking-wider mb-2">KS Goal</p>
@@ -471,35 +462,6 @@ export default function Kickstarter() {
           )}
         </div>
 
-        {/* KS + BackerKit Fees — editable */}
-        <div className="bg-[#111] border border-[#222] rounded-xl p-5">
-          <p className="text-[#888] text-xs uppercase tracking-wider mb-2">KS + BackerKit Fees</p>
-          {editingFee ? (
-            <div className="flex items-center gap-1">
-              <input autoFocus type="number" step="0.1" min="0" max="100" className="input w-20 text-2xl font-bold"
-                value={feeDraft} onChange={(e) => setFeeDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    const v = parseFloat(feeDraft) / 100;
-                    if (!isNaN(v)) { setKsFee(v); localStorage.setItem("pb_ks_fee", String(v)); }
-                    setEditingFee(false);
-                  }
-                  if (e.key === "Escape") setEditingFee(false);
-                }} />
-              <span className="text-white text-lg font-bold">%</span>
-              <button onClick={() => {
-                const v = parseFloat(feeDraft) / 100;
-                if (!isNaN(v)) { setKsFee(v); localStorage.setItem("pb_ks_fee", String(v)); }
-                setEditingFee(false);
-              }} className="text-green-400 hover:text-green-300 ml-1"><Check size={13} /></button>
-            </div>
-          ) : (
-            <button onClick={() => { setFeeDraft((ksFee * 100).toFixed(1)); setEditingFee(true); }}
-              className="text-2xl font-bold text-white hover:text-[#ccc] transition-colors text-left">
-              {(ksFee * 100).toFixed(1)}%
-            </button>
-          )}
-        </div>
       </div>
 
       {/* Tab bar */}
@@ -532,7 +494,7 @@ export default function Kickstarter() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[#222] text-[#555] text-xs uppercase tracking-wider">
-                {["Tier", "Price", "Contents", "Retail", "Saves", "Net (after fees)", "Slots", ""].map((h) => (
+                {["Tier", "Price", "Contents", "Retail", "Saves", "Slots", ""].map((h) => (
                   <th key={h} className="text-left px-4 py-3">{h}</th>
                 ))}
               </tr>
@@ -543,7 +505,6 @@ export default function Kickstarter() {
                   key={t.id}
                   tier={t}
                   skus={skus}
-                  ksFee={ksFee}
                   onSave={(updated) => saveTiers(tiers.map((x) => x.id === updated.id ? updated : x))}
                   onDelete={() => saveTiers(tiers.filter((x) => x.id !== t.id))}
                 />
