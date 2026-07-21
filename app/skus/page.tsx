@@ -31,9 +31,9 @@ type ProfitAssumptions = {
 
 const DEFAULT_ASSUMPTIONS: ProfitAssumptions = {
   customerDiscountPct: 0,
-  opsCostFixed: 3,
-  opsCostPct: 5,
-  marketingCostFixed: 5,
+  opsCostFixed: 5,
+  opsCostPct: 3,
+  marketingCostFixed: 8,
   marketingCostPct: 5,
   factorToSell: 4,
   kickstarterFeePct: 10,
@@ -65,6 +65,10 @@ const DEFAULT_SKUS: SKU[] = [
 
 function fmt(n: number) {
   return n === 0 ? "—" : `$${n % 1 === 0 ? n : n.toFixed(2)}`;
+}
+
+function roundUpToTen(n: number) {
+  return Math.ceil(n / 10) * 10;
 }
 
 export default function SKUs() {
@@ -142,6 +146,15 @@ export default function SKUs() {
 
   function updateRetailPrice(id: string, value: number) {
     saveSkus(skus.map((s) => (s.id === id ? { ...s, retailPrice: value } : s)));
+  }
+
+  function updateFactorToSell(newFactor: number) {
+    saveAssumptions({ ...assumptions, factorToSell: newFactor });
+    saveSkus(skus.map((s) => {
+      if (s.parentId !== null) return s;
+      const landed = s.unitPrice + s.estShipping + s.estDuties + s.estPackaging;
+      return { ...s, retailPrice: roundUpToTen(landed * newFactor) };
+    }));
   }
 
   function startEdit(s: SKU) { setEditingId(s.id); setDraft({ ...s }); }
@@ -486,7 +499,7 @@ export default function SKUs() {
         <div className="space-y-6">
           <div className="bg-[#111] border border-[#222] rounded-xl p-5">
             <h2 className="text-xs font-semibold text-[#888] uppercase tracking-wider mb-4">Assumptions</h2>
-            <p className="text-[#555] text-xs mb-4">Ops and Marketing are modeled as a flat $ (one box, one acquisition — doesn't scale per item) plus a small variable % (extra materials/spend for larger orders). This is why their share of price shrinks as order size grows.</p>
+            <p className="text-[#555] text-xs mb-4">Ops and Marketing are modeled as a flat $ (one box, one acquisition — doesn't scale per item) plus a small variable % (extra materials/spend for larger orders). This is why their share of price shrinks as order size grows. Changing Factor to Sell recalculates and overwrites every product&apos;s Retail Price (rounded up to the nearest $10) on the Products tab.</p>
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-8">
               {([
                 ["customerDiscountPct", "Customer Discount %"],
@@ -504,7 +517,7 @@ export default function SKUs() {
                     type="number"
                     className="input w-full"
                     value={assumptions[key]}
-                    onChange={(e) => saveAssumptions({ ...assumptions, [key]: +e.target.value })}
+                    onChange={(e) => key === "factorToSell" ? updateFactorToSell(+e.target.value) : saveAssumptions({ ...assumptions, [key]: +e.target.value })}
                   />
                 </div>
               ))}

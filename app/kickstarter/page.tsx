@@ -4,8 +4,6 @@ import { useState, useEffect } from "react";
 import { Plus, Trash2, Pencil, Check, X } from "lucide-react";
 
 const DEFAULT_KS_FEE = 0.12;
-const DEFAULT_BLENDED_LOW = 80;
-const DEFAULT_BLENDED_HIGH = 100;
 const DEFAULT_KS_GOAL = 25000;
 const DEFAULT_BREAKEVEN = 20000;
 
@@ -39,9 +37,9 @@ type ProfitAssumptions = {
 
 const DEFAULT_ASSUMPTIONS: ProfitAssumptions = {
   customerDiscountPct: 0,
-  opsCostFixed: 3,
-  opsCostPct: 5,
-  marketingCostFixed: 5,
+  opsCostFixed: 5,
+  opsCostPct: 3,
+  marketingCostFixed: 8,
   marketingCostPct: 5,
   factorToSell: 4,
   kickstarterFeePct: 10,
@@ -348,17 +346,12 @@ export default function Kickstarter() {
   const [colors, setColors] = useState<Color[]>([]);
   const [assumptions, setAssumptions] = useState<ProfitAssumptions>(DEFAULT_ASSUMPTIONS);
   const [ksFee, setKsFee] = useState(DEFAULT_KS_FEE);
-  const [blendedLow, setBlendedLow] = useState(DEFAULT_BLENDED_LOW);
-  const [blendedHigh, setBlendedHigh] = useState(DEFAULT_BLENDED_HIGH);
   const [ksGoal, setKsGoal] = useState(DEFAULT_KS_GOAL);
   const [breakeven, setBreakeven] = useState(DEFAULT_BREAKEVEN);
   const [editingFee, setEditingFee] = useState(false);
-  const [editingBlended, setEditingBlended] = useState(false);
   const [editingGoal, setEditingGoal] = useState(false);
   const [editingBreakeven, setEditingBreakeven] = useState(false);
   const [feeDraft, setFeeDraft] = useState("");
-  const [blendedLowDraft, setBlendedLowDraft] = useState("");
-  const [blendedHighDraft, setBlendedHighDraft] = useState("");
   const [goalDraft, setGoalDraft] = useState("");
   const [breakevenDraft, setBreakevenDraft] = useState("");
 
@@ -374,9 +367,6 @@ export default function Kickstarter() {
 
     const fee = localStorage.getItem("pb_ks_fee");
     if (fee) setKsFee(parseFloat(fee));
-
-    const blended = localStorage.getItem("pb_ks_blended");
-    if (blended) { const b = JSON.parse(blended); setBlendedLow(b.low); setBlendedHigh(b.high); }
 
     const goal = localStorage.getItem("pb_ks_goal");
     if (goal) setKsGoal(parseInt(goal));
@@ -438,7 +428,7 @@ export default function Kickstarter() {
         <p className="text-[#888] text-sm mt-1">Tiers, add-ons, and stretch goals — Sept 1, 2026</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
         {/* KS Goal — editable */}
         <div className="bg-[#111] border border-[#222] rounded-xl p-5">
           <p className="text-[#888] text-xs uppercase tracking-wider mb-2">KS Goal</p>
@@ -477,44 +467,6 @@ export default function Kickstarter() {
           ) : (
             <button onClick={() => { setBreakevenDraft(String(breakeven)); setEditingBreakeven(true); }} className="text-2xl font-bold text-white hover:text-[#ccc] transition-colors text-left">
               ${breakeven.toLocaleString()}
-            </button>
-          )}
-        </div>
-
-        {/* Blended Avg Pledge — editable */}
-        <div className="bg-[#111] border border-[#222] rounded-xl p-5">
-          <p className="text-[#888] text-xs uppercase tracking-wider mb-2">Blended Avg Pledge</p>
-          {editingBlended ? (
-            <div className="flex items-center gap-1">
-              <span className="text-white text-sm">$</span>
-              <input autoFocus type="number" className="input w-14 text-lg font-bold" value={blendedLowDraft}
-                onChange={(e) => setBlendedLowDraft(e.target.value)} />
-              <span className="text-[#555] text-sm">–</span>
-              <span className="text-white text-sm">$</span>
-              <input type="number" className="input w-14 text-lg font-bold" value={blendedHighDraft}
-                onChange={(e) => setBlendedHighDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    const lo = parseInt(blendedLowDraft) || blendedLow;
-                    const hi = parseInt(blendedHighDraft) || blendedHigh;
-                    setBlendedLow(lo); setBlendedHigh(hi);
-                    localStorage.setItem("pb_ks_blended", JSON.stringify({ low: lo, high: hi }));
-                    setEditingBlended(false);
-                  }
-                  if (e.key === "Escape") setEditingBlended(false);
-                }} />
-              <button onClick={() => {
-                const lo = parseInt(blendedLowDraft) || blendedLow;
-                const hi = parseInt(blendedHighDraft) || blendedHigh;
-                setBlendedLow(lo); setBlendedHigh(hi);
-                localStorage.setItem("pb_ks_blended", JSON.stringify({ low: lo, high: hi }));
-                setEditingBlended(false);
-              }} className="text-green-400 hover:text-green-300 ml-1"><Check size={13} /></button>
-            </div>
-          ) : (
-            <button onClick={() => { setBlendedLowDraft(String(blendedLow)); setBlendedHighDraft(String(blendedHigh)); setEditingBlended(true); }}
-              className="text-2xl font-bold text-white hover:text-[#ccc] transition-colors text-left">
-              ${blendedLow}–${blendedHigh}
             </button>
           )}
         </div>
