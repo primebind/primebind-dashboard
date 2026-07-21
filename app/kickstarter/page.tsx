@@ -494,7 +494,7 @@ export default function Kickstarter() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[#222] text-[#555] text-xs uppercase tracking-wider">
-                {["Tier", "Price", "Contents", "Perceived Value", "Saves", "Slots", ""].map((h) => (
+                {["Tier", "Price", "Contents", "Value", "Saves", "Slots", ""].map((h) => (
                   <th key={h} className="text-left px-4 py-3">{h}</th>
                 ))}
               </tr>

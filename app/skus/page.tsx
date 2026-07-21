@@ -279,7 +279,7 @@ export default function SKUs() {
                   <label className="text-xs text-[#888] mb-1 block">Product Name</label>
                   <input className="input w-full" placeholder="9 Pocket Binder" value={parentForm.name} onChange={(e) => setParentForm({ ...parentForm, name: e.target.value })} />
                 </div>
-                {[["unitPrice","Unit Price ($)"],["estShipping","Est. Shipping ($)"],["estDuties","Est. Duties ($)"],["estPackaging","Est. Packaging ($)"],["retailPrice", parentForm.isInventoryItem ? "Retail Price ($)" : "Perceived Value ($)"],["dylanFernando","Dylan/Fernando ($)"]].map(([key, label]) => (
+                {[["unitPrice","Unit Price ($)"],["estShipping","Est. Shipping ($)"],["estDuties","Est. Duties ($)"],["estPackaging","Est. Packaging ($)"],["retailPrice", parentForm.isInventoryItem ? "Retail Price ($)" : "Value ($)"],["dylanFernando","Dylan/Fernando ($)"]].map(([key, label]) => (
                   <div key={key}>
                     <label className="text-xs text-[#888] mb-1 block">{label}</label>
                     <input type="number" className="input w-full" placeholder="0" value={(parentForm as unknown as Record<string, string>)[key]} onChange={(e) => setParentForm({ ...parentForm, [key]: e.target.value })} />
@@ -320,7 +320,7 @@ export default function SKUs() {
                             <label className="text-[10px] text-[#555] whitespace-nowrap">Name</label>
                             <input className="input w-36" value={draft.name ?? ""} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
                           </div>
-                          {[["unitPrice","Unit Price"],["estShipping","Shipping"],["estDuties","Duties"],["estPackaging","Packaging"],["retailPrice", (draft.isInventoryItem ?? true) ? "Retail Price" : "Perceived Value"]].map(([field, label]) => (
+                          {[["unitPrice","Unit Price"],["estShipping","Shipping"],["estDuties","Duties"],["estPackaging","Packaging"],["retailPrice", (draft.isInventoryItem ?? true) ? "Retail Price" : "Value"]].map(([field, label]) => (
                             <div key={field} className="flex flex-col gap-0.5">
                               <label className="text-[10px] text-[#555] whitespace-nowrap">{label}</label>
                               <input type="number" className="input w-16" value={(draft as Record<string, number>)[field] ?? 0} onChange={(e) => setDraft({ ...draft, [field]: +e.target.value })} />
@@ -358,7 +358,7 @@ export default function SKUs() {
                           <span className="text-sm text-white font-medium">{fmt(landedCost)}</span>
                         </div>
                         <div className="flex flex-col gap-0.5">
-                          <span className="text-[10px] text-[#555]">{parent.isInventoryItem === false ? "Perceived Value" : "Retail Price"}</span>
+                          <span className="text-[10px] text-[#555]">{parent.isInventoryItem === false ? "Value" : "Retail Price"}</span>
                           <span className="text-sm text-green-400 font-medium">{fmt(parent.retailPrice)}</span>
                         </div>
                         <div className="flex gap-2 ml-auto">
