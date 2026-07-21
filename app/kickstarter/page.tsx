@@ -151,9 +151,6 @@ function TierRow({ tier, skus, onSave, onDelete }: { tier: Tier; skus: SKU[]; on
         <td className="px-4 py-3">
           <input className="input w-32" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
         </td>
-        <td className="px-4 py-3">
-          <input type="number" className="input w-20" value={draft.price} onChange={(e) => setDraft({ ...draft, price: +e.target.value })} />
-        </td>
         <td className="px-4 py-3 min-w-[200px]">
           <div className="space-y-1.5">
             {draft.contents.map((item) => (
@@ -171,6 +168,9 @@ function TierRow({ tier, skus, onSave, onDelete }: { tier: Tier; skus: SKU[]; on
               <button onClick={addItem} className="text-[#555] hover:text-white"><Plus size={13} /></button>
             </div>
           </div>
+        </td>
+        <td className="px-4 py-3">
+          <input type="number" className="input w-20" value={draft.price} onChange={(e) => setDraft({ ...draft, price: +e.target.value })} />
         </td>
         <td className="px-4 py-3 text-[#555] text-sm">${draftRetail || "—"}</td>
         <td className="px-4 py-3 text-[#555] text-xs">—</td>
@@ -192,8 +192,8 @@ function TierRow({ tier, skus, onSave, onDelete }: { tier: Tier; skus: SKU[]; on
       <td className="px-4 py-4">
         <p className="text-white font-medium text-sm">{tier.name}</p>
       </td>
-      <td className="px-4 py-4 text-white font-semibold">${tier.price}</td>
       <td className="px-4 py-4 text-[#888] text-xs">{contentsLabel(tier.contents, skus)}</td>
+      <td className="px-4 py-4 text-white font-semibold">${tier.price}</td>
       <td className="px-4 py-4 text-[#555] text-sm">{retail > 0 ? `$${retail}` : "—"}</td>
       <td className="px-4 py-4">
         {sv && sv.amt > 0 && (
@@ -494,7 +494,7 @@ export default function Kickstarter() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[#222] text-[#555] text-xs uppercase tracking-wider">
-                {["Tier", "Price", "Contents", "Value", "Saves", "Slots", ""].map((h) => (
+                {["Tier", "Contents", "Price", "Value", "Saves", "Slots", ""].map((h) => (
                   <th key={h} className="text-left px-4 py-3">{h}</th>
                 ))}
               </tr>
