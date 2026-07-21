@@ -20,7 +20,9 @@ type SKU = {
 
 type ProfitAssumptions = {
   customerDiscountPct: number;
+  opsCostFixed: number;
   opsCostPct: number;
+  marketingCostFixed: number;
   marketingCostPct: number;
   factorToSell: number;
   kickstarterFeePct: number;
@@ -29,8 +31,10 @@ type ProfitAssumptions = {
 
 const DEFAULT_ASSUMPTIONS: ProfitAssumptions = {
   customerDiscountPct: 0,
-  opsCostPct: 20,
-  marketingCostPct: 30,
+  opsCostFixed: 3,
+  opsCostPct: 5,
+  marketingCostFixed: 5,
+  marketingCostPct: 5,
   factorToSell: 4,
   kickstarterFeePct: 10,
   backerkitFeePct: 2,
@@ -482,12 +486,15 @@ export default function SKUs() {
         <div className="space-y-6">
           <div className="bg-[#111] border border-[#222] rounded-xl p-5">
             <h2 className="text-xs font-semibold text-[#888] uppercase tracking-wider mb-4">Assumptions</h2>
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+            <p className="text-[#555] text-xs mb-4">Ops and Marketing are modeled as a flat $ (one box, one acquisition — doesn't scale per item) plus a small variable % (extra materials/spend for larger orders). This is why their share of price shrinks as order size grows.</p>
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-8">
               {([
                 ["customerDiscountPct", "Customer Discount %"],
                 ["factorToSell", "Factor to Sell"],
-                ["opsCostPct", "Ops Cost %"],
-                ["marketingCostPct", "Marketing Cost %"],
+                ["opsCostFixed", "Ops Fixed $"],
+                ["opsCostPct", "Ops Variable %"],
+                ["marketingCostFixed", "Marketing Fixed $"],
+                ["marketingCostPct", "Marketing Variable %"],
                 ["kickstarterFeePct", "Kickstarter Fee %"],
                 ["backerkitFeePct", "BackerKit Fee %"],
               ] as const).map(([key, label]) => (
@@ -532,8 +539,8 @@ export default function SKUs() {
                   const discounted = realistic * (1 - assumptions.customerDiscountPct / 100);
                   const revenueMinusCogs = discounted - landed;
                   const cogsPct = discounted !== 0 ? (landed / discounted) * 100 : 0;
-                  const opsCost = discounted * (assumptions.opsCostPct / 100);
-                  const marketingCost = realistic * (assumptions.marketingCostPct / 100);
+                  const opsCost = assumptions.opsCostFixed + discounted * (assumptions.opsCostPct / 100);
+                  const marketingCost = assumptions.marketingCostFixed + realistic * (assumptions.marketingCostPct / 100);
                   const dylanFernando = p.dylanFernando ?? 0;
                   const ksFee = discounted * (assumptions.kickstarterFeePct / 100);
                   const bkFee = discounted * (assumptions.backerkitFeePct / 100);

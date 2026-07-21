@@ -28,7 +28,9 @@ type Color = { id: string; name: string; hex: string };
 
 type ProfitAssumptions = {
   customerDiscountPct: number;
+  opsCostFixed: number;
   opsCostPct: number;
+  marketingCostFixed: number;
   marketingCostPct: number;
   factorToSell: number;
   kickstarterFeePct: number;
@@ -37,8 +39,10 @@ type ProfitAssumptions = {
 
 const DEFAULT_ASSUMPTIONS: ProfitAssumptions = {
   customerDiscountPct: 0,
-  opsCostPct: 20,
-  marketingCostPct: 30,
+  opsCostFixed: 3,
+  opsCostPct: 5,
+  marketingCostFixed: 5,
+  marketingCostPct: 5,
   factorToSell: 4,
   kickstarterFeePct: 10,
   backerkitFeePct: 2,
@@ -692,8 +696,8 @@ export default function Kickstarter() {
               {tiers.map((t) => {
                 const bundleLanded = calcBundleLanded(t.contents, skus);
                 const bundleDylanFernando = calcBundleDylanFernando(t.contents, skus);
-                const opsCost = t.price * (assumptions.opsCostPct / 100);
-                const marketingCost = t.price * (assumptions.marketingCostPct / 100);
+                const opsCost = assumptions.opsCostFixed + t.price * (assumptions.opsCostPct / 100);
+                const marketingCost = assumptions.marketingCostFixed + t.price * (assumptions.marketingCostPct / 100);
                 const ksFeeAmt = t.price * (assumptions.kickstarterFeePct / 100);
                 const bkFeeAmt = t.price * (assumptions.backerkitFeePct / 100);
                 const profit = t.price - bundleLanded - opsCost - marketingCost - bundleDylanFernando - ksFeeAmt - bkFeeAmt;
