@@ -95,6 +95,14 @@ function mergeIntoLocal(remote: Record<string, string>) {
 
 type SyncStatus = "idle" | "pushing" | "pulling" | "ok" | "error";
 
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+function formatKsDate(iso: string) {
+  const [y, m, d] = iso.split("-").map(Number);
+  if (!y || !m || !d) return iso;
+  return `${MONTHS[m - 1]} ${d}, ${y}`;
+}
+
 export default function Sidebar() {
   const pathname = usePathname();
 
@@ -107,6 +115,18 @@ export default function Sidebar() {
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
   const [syncMsg, setSyncMsg] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [ksDate, setKsDate] = useState("2026-10-01");
+  const [editingDate, setEditingDate] = useState(false);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("pb_ks_launch_date");
+    if (saved) setKsDate(saved);
+  }, []);
+
+  function saveKsDate(v: string) {
+    setKsDate(v);
+    localStorage.setItem("pb_ks_launch_date", v);
+  }
 
   useEffect(() => {
     setOpen((prev) => {
@@ -236,7 +256,20 @@ export default function Sidebar() {
             {syncMsg}
           </p>
         )}
-        <p className="text-[#555] text-xs text-center">KS Launch: Sept 1, 2026</p>
+        {editingDate ? (
+          <input
+            type="date"
+            autoFocus
+            className="w-full bg-transparent text-[#888] text-xs text-center border border-[#333] rounded px-1 py-1 focus:outline-none focus:border-[#555]"
+            value={ksDate}
+            onChange={(e) => saveKsDate(e.target.value)}
+            onBlur={() => setEditingDate(false)}
+          />
+        ) : (
+          <button onClick={() => setEditingDate(true)} className="w-full text-[#555] text-xs text-center hover:text-white transition-colors">
+            KS Launch: {formatKsDate(ksDate)}
+          </button>
+        )}
       </div>
     </aside>
   );

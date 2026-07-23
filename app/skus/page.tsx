@@ -374,8 +374,8 @@ export default function SKUs() {
                       <thead>
                         <tr className="text-[#444] text-xs uppercase tracking-wider border-b border-[#1a1a1a]">
                           <th className="text-left px-5 py-2 pl-10">Colorway</th>
-                          <th className="text-left px-5 py-2">Samples</th>
-                          <th className="text-left px-5 py-2">On Order</th>
+                          <th className="text-left px-5 py-2">Ordered</th>
+                          <th className="text-left px-5 py-2">In Transit</th>
                           <th className="text-left px-5 py-2">On Hand</th>
                           <th className="px-5 py-2" />
                         </tr>

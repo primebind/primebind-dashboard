@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, Fragment } from "react";
-import { Plus, X, ChevronDown, ChevronRight, Check } from "lucide-react";
+import { Plus, X, ChevronDown, ChevronRight, Check, Pencil } from "lucide-react";
 
 type InboundStatus = "Pending" | "In Transit" | "Partial" | "Received" | "Cancelled";
 
@@ -84,6 +84,15 @@ export default function InboundPage() {
     eta: "",
     notes: "",
     lines: [blankLine()] as InboundLine[],
+  });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({
+    vendorName: "",
+    carrier: "DHL",
+    trackingNumber: "",
+    eta: "",
+    notes: "",
+    lines: [] as InboundLine[],
   });
 
   useEffect(() => {
@@ -172,6 +181,50 @@ export default function InboundPage() {
     setShowNew(false);
   }
 
+  function startEdit(id: string) {
+    const inbound = inbounds.find((i) => i.id === id);
+    if (!inbound) return;
+    setEditForm({
+      vendorName: inbound.vendorName,
+      carrier: inbound.carrier,
+      trackingNumber: inbound.trackingNumber,
+      eta: inbound.eta,
+      notes: inbound.notes,
+      lines: inbound.lines.map((l) => ({ ...l })),
+    });
+    setEditingId(id);
+    setExpandedId(id);
+    setReceivingId(null);
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+  }
+
+  function updateEditLine(id: string, patch: Partial<InboundLine>) {
+    setEditForm({
+      ...editForm,
+      lines: editForm.lines.map((l) =>
+        l.id === id ? { ...l, ...patch, ...(patch.skuId !== undefined ? { colorwayId: "" } : {}) } : l
+      ),
+    });
+  }
+
+  function saveEdit(id: string) {
+    const lines = editForm.lines.filter((l) => l.description.trim() || l.skuId);
+    if (!lines.length) return;
+    saveInbounds(inbounds.map((i) => i.id === id ? {
+      ...i,
+      vendorName: editForm.vendorName.trim() || "Unknown",
+      carrier: editForm.carrier,
+      trackingNumber: editForm.trackingNumber.trim(),
+      eta: editForm.eta,
+      notes: editForm.notes.trim(),
+      lines,
+    } : i));
+    setEditingId(null);
+  }
+
   function startReceive(id: string) {
     const inbound = inbounds.find((i) => i.id === id);
     if (!inbound) return;
@@ -180,6 +233,7 @@ export default function InboundPage() {
     setReceiveDraft(draft);
     setReceivingId(id);
     setExpandedId(id);
+    setEditingId(null);
   }
 
   function confirmReceive(inboundId: string) {
@@ -334,6 +388,7 @@ export default function InboundPage() {
               {inbounds.map((inbound) => {
                 const isExpanded = expandedId === inbound.id;
                 const isReceiving = receivingId === inbound.id;
+                const isEditingRow = editingId === inbound.id;
                 const canReceive = inbound.status !== "Received" && inbound.status !== "Cancelled";
 
                 return (
@@ -360,12 +415,19 @@ export default function InboundPage() {
                         </select>
                       </td>
                       <td className="px-5 py-4">
-                        <button onClick={() => setExpandedId(isExpanded && !isReceiving ? null : inbound.id)} className="flex items-center gap-1 text-xs text-[#555] hover:text-white transition-colors">
+                        <button onClick={() => setExpandedId(isExpanded && !isReceiving && !isEditingRow ? null : inbound.id)} className="flex items-center gap-1 text-xs text-[#555] hover:text-white transition-colors">
                           {inbound.lines.length} {isExpanded ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
                         </button>
                       </td>
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => isEditingRow ? cancelEdit() : startEdit(inbound.id)}
+                            className="text-[#444] hover:text-white transition-colors"
+                            title="Edit shipment"
+                          >
+                            <Pencil size={13} />
+                          </button>
                           {canReceive && (
                             <button
                               onClick={() => isReceiving ? setReceivingId(null) : startReceive(inbound.id)}
@@ -425,8 +487,83 @@ export default function InboundPage() {
                       </tr>
                     )}
 
+                    {/* Edit panel */}
+                    {isEditingRow && (
+                      <tr className="border-b border-[#1a1a1a]">
+                        <td colSpan={7} className="px-10 py-5 bg-[#0a0a0a]">
+                          <div className="space-y-5">
+                            <p className="text-xs text-[#555] uppercase tracking-wider font-semibold">Edit shipment</p>
+
+                            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                              <div>
+                                <label className="text-xs text-[#888] mb-1 block">Vendor / Shipper</label>
+                                <input className="input w-full" value={editForm.vendorName} onChange={(e) => setEditForm({ ...editForm, vendorName: e.target.value })} />
+                              </div>
+                              <div>
+                                <label className="text-xs text-[#888] mb-1 block">Carrier</label>
+                                <select className="input w-full" value={editForm.carrier} onChange={(e) => setEditForm({ ...editForm, carrier: e.target.value })}>
+                                  {CARRIERS.map((c) => <option key={c}>{c}</option>)}
+                                </select>
+                              </div>
+                              <div>
+                                <label className="text-xs text-[#888] mb-1 block">Tracking #</label>
+                                <input className="input w-full" value={editForm.trackingNumber} onChange={(e) => setEditForm({ ...editForm, trackingNumber: e.target.value })} />
+                              </div>
+                              <div>
+                                <label className="text-xs text-[#888] mb-1 block">Expected Arrival</label>
+                                <input type="date" className="input w-full" value={editForm.eta} onChange={(e) => setEditForm({ ...editForm, eta: e.target.value })} />
+                              </div>
+                              <div className="col-span-2">
+                                <label className="text-xs text-[#888] mb-1 block">Notes</label>
+                                <input className="input w-full" value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} />
+                              </div>
+                            </div>
+
+                            <div>
+                              <p className="text-xs text-[#555] uppercase tracking-wider mb-2">Items</p>
+                              <div className="space-y-2">
+                                <div className="hidden sm:grid text-[10px] text-[#444] uppercase tracking-wider mb-1" style={{ gridTemplateColumns: "1fr 8rem 8rem 4.5rem 1.5rem" }}>
+                                  <span className="pl-1">Description</span><span>SKU</span><span>Colorway</span><span className="text-center">Qty</span><span />
+                                </div>
+                                {editForm.lines.map((line) => {
+                                  const children = line.skuId ? childrenOf(line.skuId) : [];
+                                  return (
+                                    <div key={line.id} className="grid gap-2 items-center" style={{ gridTemplateColumns: "1fr 8rem 8rem 4.5rem 1.5rem" }}>
+                                      <input className="input" placeholder="e.g. 9PB Obsidian final" value={line.description} onChange={(e) => updateEditLine(line.id, { description: e.target.value })} />
+                                      <select className="input text-xs" value={line.skuId} onChange={(e) => updateEditLine(line.id, { skuId: e.target.value })}>
+                                        <option value="">— SKU —</option>
+                                        {parentSkus.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                      </select>
+                                      <select className="input text-xs" value={line.colorwayId} onChange={(e) => updateEditLine(line.id, { colorwayId: e.target.value })} disabled={!line.skuId || children.length === 0}>
+                                        <option value="">— Color —</option>
+                                        {children.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                      </select>
+                                      <input type="number" className="input text-center" min={1} value={line.qtyOrdered} onChange={(e) => updateEditLine(line.id, { qtyOrdered: +e.target.value })} />
+                                      {editForm.lines.length > 1
+                                        ? <button onClick={() => setEditForm({ ...editForm, lines: editForm.lines.filter((l) => l.id !== line.id) })} className="text-[#444] hover:text-red-500"><X size={13} /></button>
+                                        : <span />}
+                                    </div>
+                                  );
+                                })}
+                                <button onClick={() => setEditForm({ ...editForm, lines: [...editForm.lines, blankLine()] })} className="flex items-center gap-1.5 text-xs text-[#444] hover:text-[#888] mt-1">
+                                  <Plus size={11} /> Add item
+                                </button>
+                              </div>
+                            </div>
+
+                            <div className="flex gap-3">
+                              <button onClick={() => saveEdit(inbound.id)} className="flex items-center gap-1.5 bg-white text-black text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#e0e0e0]">
+                                <Check size={14} /> Save Changes
+                              </button>
+                              <button onClick={cancelEdit} className="text-[#888] text-sm px-4 py-2 hover:text-white">Cancel</button>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+
                     {/* Line item detail */}
-                    {isExpanded && !isReceiving && (
+                    {isExpanded && !isReceiving && !isEditingRow && (
                       <tr className="border-b border-[#1a1a1a]">
                         <td colSpan={7} className="px-10 py-4 bg-[#0d0d0d]">
                           <div className="space-y-2">
