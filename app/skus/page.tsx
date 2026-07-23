@@ -254,20 +254,20 @@ export default function SKUs() {
         <>
           <div className="grid grid-cols-4 gap-4">
             <div className="bg-[#111] border border-[#222] rounded-xl p-5">
-              <p className="text-[#888] text-xs uppercase tracking-wider mb-2">On Hand</p>
-              <p className="text-3xl font-bold text-white">{totalUnits.toLocaleString()}</p>
+              <p className="text-[#888] text-xs uppercase tracking-wider mb-2">Active SKUs</p>
+              <p className="text-3xl font-bold text-white">{parents.length}</p>
             </div>
             <div className="bg-[#111] border border-[#222] rounded-xl p-5">
               <p className="text-[#888] text-xs uppercase tracking-wider mb-2">On Order</p>
-              <p className={`text-3xl font-bold ${totalOnOrder > 0 ? "text-blue-400" : "text-white"}`}>{totalOnOrder.toLocaleString()}</p>
-            </div>
-            <div className="bg-[#111] border border-[#222] rounded-xl p-5">
-              <p className="text-[#888] text-xs uppercase tracking-wider mb-2">Samples</p>
               <p className="text-3xl font-bold text-white">{totalSamples.toLocaleString()}</p>
             </div>
             <div className="bg-[#111] border border-[#222] rounded-xl p-5">
-              <p className="text-[#888] text-xs uppercase tracking-wider mb-2">Active SKUs</p>
-              <p className="text-3xl font-bold text-white">{parents.length}</p>
+              <p className="text-[#888] text-xs uppercase tracking-wider mb-2">In Transit</p>
+              <p className={`text-3xl font-bold ${totalOnOrder > 0 ? "text-blue-400" : "text-white"}`}>{totalOnOrder.toLocaleString()}</p>
+            </div>
+            <div className="bg-[#111] border border-[#222] rounded-xl p-5">
+              <p className="text-[#888] text-xs uppercase tracking-wider mb-2">On Hand</p>
+              <p className="text-3xl font-bold text-white">{totalUnits.toLocaleString()}</p>
             </div>
           </div>
 
