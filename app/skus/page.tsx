@@ -20,13 +20,14 @@ type SKU = {
   itemStatus?: ProductStatus;
 };
 
-type ProductStatus = "Idea" | "Design/Development" | "Final Samples" | "Complete";
-const PRODUCT_STATUSES: ProductStatus[] = ["Idea", "Design/Development", "Final Samples", "Complete"];
+type ProductStatus = "Idea" | "Design/Development" | "Final Samples" | "Complete" | "Not Applicable";
+const PRODUCT_STATUSES: ProductStatus[] = ["Idea", "Design/Development", "Final Samples", "Complete", "Not Applicable"];
 const PRODUCT_STATUS_COLORS: Record<ProductStatus, string> = {
   Idea: "bg-[#333] text-[#888]",
   "Design/Development": "bg-blue-950 text-blue-400",
   "Final Samples": "bg-purple-950 text-purple-300",
   Complete: "bg-green-950 text-green-400",
+  "Not Applicable": "bg-[#1a1a1a] text-[#555]",
 };
 
 type ProfitAssumptions = {
