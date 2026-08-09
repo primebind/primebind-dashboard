@@ -17,6 +17,16 @@ type SKU = {
   samplesInInventory: number;
   dylanFernando?: number;
   isInventoryItem?: boolean;
+  itemStatus?: ProductStatus;
+};
+
+type ProductStatus = "Idea" | "Design/Development" | "Final Samples" | "Complete";
+const PRODUCT_STATUSES: ProductStatus[] = ["Idea", "Design/Development", "Final Samples", "Complete"];
+const PRODUCT_STATUS_COLORS: Record<ProductStatus, string> = {
+  Idea: "bg-[#333] text-[#888]",
+  "Design/Development": "bg-blue-950 text-blue-400",
+  "Final Samples": "bg-purple-950 text-purple-300",
+  Complete: "bg-green-950 text-green-400",
 };
 
 type ProfitAssumptions = {
@@ -248,6 +258,10 @@ export default function SKUs() {
 
   function updateDylanFernando(id: string, value: number) {
     saveSkus(skus.map((s) => (s.id === id ? { ...s, dylanFernando: value } : s)));
+  }
+
+  function updateItemStatus(id: string, itemStatus: ProductStatus) {
+    saveSkus(skus.map((s) => (s.id === id ? { ...s, itemStatus } : s)));
   }
 
   function updateRetailPrice(id: string, value: number) {
@@ -502,7 +516,22 @@ export default function SKUs() {
                           <span className="text-[10px] text-[#555]">{parent.isInventoryItem === false ? "Value" : "Retail Price"}</span>
                           <span className="text-sm text-green-400 font-medium">{fmt(parent.retailPrice)}</span>
                         </div>
-                        <div className="flex gap-2 ml-auto">
+                        {parent.isInventoryItem !== false && (
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-[10px] text-[#555]">Inventory</span>
+                            <span className="text-sm text-white font-medium">
+                              {children.reduce((sum, c) => sum + c.unitsInInventory, 0).toLocaleString()}
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2 ml-auto">
+                          <select
+                            value={parent.itemStatus ?? "Idea"}
+                            onChange={(e) => updateItemStatus(parent.id, e.target.value as ProductStatus)}
+                            className={`text-xs px-2 py-1 rounded-md border-0 font-medium focus:outline-none cursor-pointer ${PRODUCT_STATUS_COLORS[parent.itemStatus ?? "Idea"]}`}
+                          >
+                            {PRODUCT_STATUSES.map((s) => <option key={s}>{s}</option>)}
+                          </select>
                           <button onClick={() => startEdit(parent)} className="text-[#444] hover:text-white transition-colors"><Pencil size={13} /></button>
                           <button onClick={() => removeSku(parent.id)} className="text-[#444] hover:text-red-500 transition-colors"><Trash2 size={13} /></button>
                         </div>
