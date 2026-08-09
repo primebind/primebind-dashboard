@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Plus, Trash2, Pencil, Check, X } from "lucide-react";
+import { Fragment, useState, useEffect } from "react";
+import { Plus, Trash2, Pencil, Check, X, ChevronDown, ChevronRight } from "lucide-react";
 
 type SKU = {
   id: string;
@@ -64,6 +64,50 @@ const DEFAULT_SKUS: SKU[] = [
   { id: "fmcb", parentId: null, name: "FindMy Card Box", colorHex: "", unitPrice: 12.5, estShipping: 0, estDuties: 0, estPackaging: 0, retailPrice: 55, unitsInInventory: 0, samplesInInventory: 0, dylanFernando: 1.5 },
 ];
 
+type DevStatus = "Idea" | "In Design" | "Sampling" | "Feedback" | "Revising" | "Production Ready";
+type DevOwner = "Dylan" | "Enrique" | "Both";
+type LogEntry = { id: string; date: string; text: string };
+type DevItem = { id: string; skuId: string; item: string; status: DevStatus; owner: DevOwner; updates: LogEntry[] };
+
+const DEV_STATUSES: DevStatus[] = ["Idea", "In Design", "Sampling", "Feedback", "Revising", "Production Ready"];
+const DEV_OWNERS: DevOwner[] = ["Dylan", "Enrique", "Both"];
+
+const DEV_STATUS_COLORS: Record<DevStatus, string> = {
+  Idea: "bg-[#333] text-[#888]",
+  "In Design": "bg-blue-950 text-blue-400",
+  Sampling: "bg-purple-950 text-purple-300",
+  Feedback: "bg-yellow-950 text-yellow-400",
+  Revising: "bg-orange-950 text-orange-400",
+  "Production Ready": "bg-green-950 text-green-400",
+};
+
+const DEV_OWNER_COLORS: Record<DevOwner, string> = {
+  Dylan: "bg-purple-950 text-purple-300",
+  Enrique: "bg-yellow-950 text-yellow-300",
+  Both: "bg-[#252525] text-[#aaa]",
+};
+
+const DEV_DEFAULTS: DevItem[] = [
+  {
+    id: "density", skuId: "9pb", item: "Overall density / solidity", owner: "Dylan", status: "Revising",
+    updates: [{ id: "d1", date: "2026-08-08", text: "Doesn't feel solid/dense in hand. Nylon TPU exterior is only .4–.5mm — supplier gluing a spandex layer behind it to get to ~.7mm. Sponge density still unconfirmed. Inner lint is free-floating and needs to be glued down — not acceptable as-is." }],
+  },
+  {
+    id: "zipper", skuId: "9pb", item: "Zipper / zipper cloth function", owner: "Dylan", status: "Revising",
+    updates: [{ id: "z1", date: "2026-08-08", text: "Looks great (teeth hidden when closed) but the TPU layer over the nylon cloth makes it rigid — doesn't glide, clunky to open, hard to zip closed from fully open. Metal pull/slider may need a sleeker replacement. Next: try zipper cloth with no TPU layer. Fallback if that fails: mimic VaultX (teeth facing outward)." }],
+  },
+  {
+    id: "logo", skuId: "9pb", item: "Logo peeling", owner: "Dylan", status: "Feedback",
+    updates: [{ id: "l1", date: "2026-08-08", text: "Thin nickel-coated metal logo, heat-pressed on, peels easily under a fingernail. Confirmed peeling on deck box. Mold needs adjusting regardless. Options: better adhesive, or silver stamping instead — but must preserve the current shine/reflection, which matches the metal zipper piece and looks premium." }],
+  },
+  {
+    id: "findmy", skuId: "9pb", item: "FindMy seamlessness", owner: "Both", status: "In Design",
+    updates: [{ id: "f1", date: "2026-08-08", text: "Functionally solved already (proven in other projects) — purely a cosmetic/integration challenge. Exterior charging/activation tried, looked bad. Better direction: interior of back panel. New idea: sell thin MagSafe power banks as an upsell for periodic charging." }],
+  },
+];
+
+const today = () => new Date().toISOString().split("T")[0];
+
 function fmt(n: number) {
   return n === 0 ? "—" : `$${n % 1 === 0 ? n : n.toFixed(2)}`;
 }
@@ -91,6 +135,16 @@ export default function SKUs() {
   const [addColorForm, setAddColorForm] = useState({ name: "", hex: "" });
 
   const [onOrderMap, setOnOrderMap] = useState<Record<string, number>>({});
+
+  // Product Design & Development (per-product tab)
+  const [productTab, setProductTab] = useState<Record<string, "colorways" | "design">>({});
+  const [devItems, setDevItems] = useState<DevItem[]>([]);
+  const [addingDevTo, setAddingDevTo] = useState<string | null>(null);
+  const [devForm, setDevForm] = useState({ item: "", owner: "Enrique" as DevOwner, status: "Idea" as DevStatus });
+  const [expandedDevId, setExpandedDevId] = useState<string | null>(null);
+  const [devLogDraft, setDevLogDraft] = useState("");
+  const [editingDevId, setEditingDevId] = useState<string | null>(null);
+  const [devDraft, setDevDraft] = useState<Partial<DevItem>>({});
 
   useEffect(() => {
     const savedSkus = localStorage.getItem("pb_skus");
@@ -124,6 +178,9 @@ export default function SKUs() {
       });
       setOnOrderMap(map);
     }
+
+    const savedDev = localStorage.getItem("pb_product_dev_items");
+    setDevItems(savedDev ? JSON.parse(savedDev) : DEV_DEFAULTS);
   }, []);
 
   function saveSkus(updated: SKU[]) {
@@ -140,6 +197,51 @@ export default function SKUs() {
     setAssumptions(updated);
     localStorage.setItem("pb_profit_assumptions", JSON.stringify(updated));
   }
+
+  function saveDevItems(updated: DevItem[]) {
+    setDevItems(updated);
+    localStorage.setItem("pb_product_dev_items", JSON.stringify(updated));
+  }
+
+  function addDevItem(skuId: string) {
+    if (!devForm.item.trim()) return;
+    const entry: DevItem = { id: Date.now().toString(), skuId, ...devForm, updates: [] };
+    saveDevItems([...devItems, entry]);
+    setDevForm({ item: "", owner: "Enrique", status: "Idea" });
+    setAddingDevTo(null);
+  }
+
+  function removeDevItem(id: string) { saveDevItems(devItems.filter((i) => i.id !== id)); }
+
+  function updateDevOwner(id: string, owner: DevOwner) {
+    saveDevItems(devItems.map((i) => (i.id === id ? { ...i, owner } : i)));
+  }
+
+  function updateDevStatus(id: string, status: DevStatus) {
+    saveDevItems(devItems.map((i) => (i.id === id ? { ...i, status } : i)));
+  }
+
+  function toggleDevExpand(id: string) { setExpandedDevId(expandedDevId === id ? null : id); }
+
+  function addDevLog(id: string) {
+    if (!devLogDraft.trim()) return;
+    const entry: LogEntry = { id: Date.now().toString(), date: today(), text: devLogDraft.trim() };
+    saveDevItems(devItems.map((i) => (i.id === id ? { ...i, updates: [entry, ...i.updates] } : i)));
+    setDevLogDraft("");
+  }
+
+  function removeDevLog(id: string, logId: string) {
+    saveDevItems(devItems.map((i) => (i.id === id ? { ...i, updates: i.updates.filter((u) => u.id !== logId) } : i)));
+  }
+
+  function startDevEdit(item: DevItem) { setEditingDevId(item.id); setDevDraft({ ...item }); }
+  function commitDevEdit() {
+    if (!editingDevId || !devDraft.item?.trim()) return;
+    saveDevItems(devItems.map((i) => (i.id === editingDevId ? { ...i, ...devDraft } : i)));
+    setEditingDevId(null);
+    setDevDraft({});
+  }
+  function cancelDevEdit() { setEditingDevId(null); setDevDraft({}); }
 
   function updateDylanFernando(id: string, value: number) {
     saveSkus(skus.map((s) => (s.id === id ? { ...s, dylanFernando: value } : s)));
@@ -369,6 +471,22 @@ export default function SKUs() {
                     )}
                   </div>
 
+                  <div className="flex gap-1 px-5 pt-2 border-b border-[#1a1a1a]">
+                    {(["colorways", "design"] as const).map((key) => (
+                      <button
+                        key={key}
+                        onClick={() => setProductTab((prev) => ({ ...prev, [parent.id]: key }))}
+                        className={`px-3 py-1.5 text-xs font-medium transition-colors border-b-2 -mb-px ${
+                          (productTab[parent.id] ?? "colorways") === key ? "text-white border-white" : "text-[#555] border-transparent hover:text-[#888]"
+                        }`}
+                      >
+                        {key === "colorways" ? "Colorways" : "Product Design & Development"}
+                      </button>
+                    ))}
+                  </div>
+
+                  {(productTab[parent.id] ?? "colorways") === "colorways" && (
+                  <>
                   {children.length > 0 && (
                     <table className="w-full text-sm">
                       <thead>
@@ -440,6 +558,140 @@ export default function SKUs() {
                       <Plus size={12} /> Add colorway
                     </button>
                   )}
+                  </>
+                  )}
+
+                  {(productTab[parent.id] ?? "colorways") === "design" && (() => {
+                    const items = devItems.filter((i) => i.skuId === parent.id);
+                    return (
+                      <div>
+                        {items.length === 0 && addingDevTo !== parent.id ? (
+                          <div className="text-center py-8 text-[#555] text-sm">No design/dev items yet for {parent.name}.</div>
+                        ) : (
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="text-[#444] text-xs uppercase tracking-wider border-b border-[#1a1a1a]">
+                                <th className="text-left px-5 py-2 pl-10">Item</th>
+                                <th className="text-left px-5 py-2">Owner</th>
+                                <th className="text-left px-5 py-2">Status</th>
+                                <th className="text-left px-5 py-2">Log</th>
+                                <th className="px-5 py-2" />
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {items.map((item) => {
+                                const isExpanded = expandedDevId === item.id;
+                                const isEditingDev = editingDevId === item.id;
+                                return (
+                                  <Fragment key={item.id}>
+                                    <tr className="border-b border-[#1a1a1a] hover:bg-[#151515]">
+                                      <td className="px-5 py-3 pl-10">
+                                        {isEditingDev ? (
+                                          <input className="input w-full" value={devDraft.item || ""} onChange={(e) => setDevDraft({ ...devDraft, item: e.target.value })} autoFocus />
+                                        ) : (
+                                          <span className="text-white text-sm">{item.item}</span>
+                                        )}
+                                      </td>
+                                      <td className="px-5 py-3">
+                                        <select
+                                          value={isEditingDev ? devDraft.owner : item.owner}
+                                          onChange={(e) => isEditingDev ? setDevDraft({ ...devDraft, owner: e.target.value as DevOwner }) : updateDevOwner(item.id, e.target.value as DevOwner)}
+                                          className={`text-xs px-2 py-1 rounded-md border-0 font-medium focus:outline-none cursor-pointer ${DEV_OWNER_COLORS[(isEditingDev ? devDraft.owner : item.owner) as DevOwner]}`}
+                                        >
+                                          {DEV_OWNERS.map((o) => <option key={o}>{o}</option>)}
+                                        </select>
+                                      </td>
+                                      <td className="px-5 py-3">
+                                        <select
+                                          value={isEditingDev ? devDraft.status : item.status}
+                                          onChange={(e) => isEditingDev ? setDevDraft({ ...devDraft, status: e.target.value as DevStatus }) : updateDevStatus(item.id, e.target.value as DevStatus)}
+                                          className={`text-xs px-2 py-1 rounded-md border-0 font-medium focus:outline-none cursor-pointer ${DEV_STATUS_COLORS[(isEditingDev ? devDraft.status : item.status) as DevStatus]}`}
+                                        >
+                                          {DEV_STATUSES.map((s) => <option key={s}>{s}</option>)}
+                                        </select>
+                                      </td>
+                                      <td className="px-5 py-3">
+                                        {!isEditingDev && (
+                                          <button onClick={() => toggleDevExpand(item.id)} className="flex items-center gap-1.5 text-xs text-[#555] hover:text-white transition-colors">
+                                            <span className="text-[#888]">{item.updates.length}</span>
+                                            {isExpanded ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+                                          </button>
+                                        )}
+                                      </td>
+                                      <td className="px-5 py-3">
+                                        <div className="flex gap-2 justify-end">
+                                          {isEditingDev ? (
+                                            <><button onClick={commitDevEdit} className="text-green-400 hover:text-green-300"><Check size={13} /></button><button onClick={cancelDevEdit} className="text-[#555] hover:text-white"><X size={13} /></button></>
+                                          ) : (
+                                            <><button onClick={() => startDevEdit(item)} className="text-[#444] hover:text-white transition-colors"><Pencil size={13} /></button><button onClick={() => removeDevItem(item.id)} className="text-[#444] hover:text-red-500 transition-colors"><Trash2 size={13} /></button></>
+                                          )}
+                                        </div>
+                                      </td>
+                                    </tr>
+
+                                    {isExpanded && (
+                                      <tr className="border-b border-[#1a1a1a]">
+                                        <td colSpan={5} className="px-10 pb-4 pt-2 bg-[#0d0d0d]">
+                                          {item.updates.length > 0 && (
+                                            <div className="space-y-2 mb-3">
+                                              {item.updates.map((u) => (
+                                                <div key={u.id} className="flex items-start gap-2 text-xs">
+                                                  <span className="text-[#555] shrink-0 font-mono">{u.date}</span>
+                                                  <span className="text-[#aaa] leading-snug">{u.text}</span>
+                                                  <button onClick={() => removeDevLog(item.id, u.id)} className="ml-auto shrink-0 text-[#333] hover:text-red-500 transition-colors"><Trash2 size={11} /></button>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          )}
+                                          <div className="flex items-center gap-2">
+                                            <input
+                                              className="input flex-1 text-xs"
+                                              placeholder="Log an update…"
+                                              value={devLogDraft}
+                                              onChange={(e) => setDevLogDraft(e.target.value)}
+                                              onKeyDown={(e) => { if (e.key === "Enter") addDevLog(item.id); }}
+                                            />
+                                            <button onClick={() => addDevLog(item.id)} className="flex items-center gap-1 text-xs bg-[#1a1a1a] border border-[#333] text-[#888] hover:text-white px-2.5 py-1.5 rounded-md transition-colors">
+                                              <Plus size={11} /> Add
+                                            </button>
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    )}
+                                  </Fragment>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        )}
+
+                        {addingDevTo === parent.id ? (
+                          <div className="px-5 py-3 pl-10 flex items-center gap-2 border-t border-[#1a1a1a] flex-wrap">
+                            <input
+                              className="input flex-1 min-w-[160px]"
+                              placeholder="e.g. Zipper glide"
+                              value={devForm.item}
+                              onChange={(e) => setDevForm({ ...devForm, item: e.target.value })}
+                              autoFocus
+                              onKeyDown={(e) => { if (e.key === "Enter") addDevItem(parent.id); }}
+                            />
+                            <select className="input" value={devForm.owner} onChange={(e) => setDevForm({ ...devForm, owner: e.target.value as DevOwner })}>
+                              {DEV_OWNERS.map((o) => <option key={o}>{o}</option>)}
+                            </select>
+                            <select className="input" value={devForm.status} onChange={(e) => setDevForm({ ...devForm, status: e.target.value as DevStatus })}>
+                              {DEV_STATUSES.map((s) => <option key={s}>{s}</option>)}
+                            </select>
+                            <button onClick={() => addDevItem(parent.id)} className="text-xs bg-white text-black px-3 py-1.5 rounded-lg font-medium hover:bg-[#e0e0e0]">Add</button>
+                            <button onClick={() => setAddingDevTo(null)} className="text-[#555] hover:text-white"><X size={14} /></button>
+                          </div>
+                        ) : (
+                          <button onClick={() => setAddingDevTo(parent.id)} className="w-full text-left px-5 py-2.5 pl-10 text-xs text-[#444] hover:text-[#888] transition-colors border-t border-[#1a1a1a] flex items-center gap-1.5">
+                            <Plus size={12} /> Add design/dev item
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               );
             })}
