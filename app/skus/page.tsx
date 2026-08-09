@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useState, useEffect } from "react";
-import { Plus, Trash2, Pencil, Check, X, ChevronDown, ChevronRight } from "lucide-react";
+import { Plus, Trash2, Pencil, Check, X, ChevronDown, ChevronRight, GripVertical } from "lucide-react";
 
 type SKU = {
   id: string;
@@ -139,6 +139,8 @@ export default function SKUs() {
   // Product Design & Development (per-product tab)
   const [productTab, setProductTab] = useState<Record<string, "colorways" | "design">>({});
   const [collapsedProducts, setCollapsedProducts] = useState<Record<string, boolean>>({});
+  const [dragParentId, setDragParentId] = useState<string | null>(null);
+  const [dragOverParentId, setDragOverParentId] = useState<string | null>(null);
   const [devItems, setDevItems] = useState<DevItem[]>([]);
   const [addingDevTo, setAddingDevTo] = useState<string | null>(null);
   const [devForm, setDevForm] = useState({ item: "", owner: "Enrique" as DevOwner, status: "Idea" as DevStatus });
@@ -269,6 +271,25 @@ export default function SKUs() {
   }
   function cancelEdit() { setEditingId(null); setDraft({}); }
   function removeSku(id: string) { saveSkus(skus.filter((s) => s.id !== id && s.parentId !== id)); }
+
+  function handleParentDragOver(e: React.DragEvent, id: string) {
+    e.preventDefault();
+    setDragOverParentId(id);
+  }
+
+  function handleParentDrop(targetId: string) {
+    if (!dragParentId || dragParentId === targetId) { setDragParentId(null); setDragOverParentId(null); return; }
+    const parentList = skus.filter((s) => s.parentId === null);
+    const from = parentList.findIndex((p) => p.id === dragParentId);
+    const to = parentList.findIndex((p) => p.id === targetId);
+    const reorderedParents = [...parentList];
+    const [moved] = reorderedParents.splice(from, 1);
+    reorderedParents.splice(to, 0, moved);
+    const rebuilt = reorderedParents.flatMap((p) => [p, ...skus.filter((s) => s.parentId === p.id)]);
+    saveSkus(rebuilt);
+    setDragParentId(null);
+    setDragOverParentId(null);
+  }
 
   function addColorway(parentId: string) {
     const color = colors.find((c) => c.id === selectedColorId);
@@ -412,8 +433,19 @@ export default function SKUs() {
               const landedCost = p.unitPrice + p.estShipping + p.estDuties + p.estPackaging;
 
               return (
-                <div key={parent.id} className="bg-[#111] border border-[#222] rounded-xl overflow-hidden">
+                <div
+                  key={parent.id}
+                  draggable={!isEditing}
+                  onDragStart={() => setDragParentId(parent.id)}
+                  onDragOver={(e) => handleParentDragOver(e, parent.id)}
+                  onDrop={() => handleParentDrop(parent.id)}
+                  onDragEnd={() => { setDragParentId(null); setDragOverParentId(null); }}
+                  className={`bg-[#111] border rounded-xl overflow-hidden transition-colors ${
+                    dragOverParentId === parent.id && dragParentId !== parent.id ? "border-white" : "border-[#222]"
+                  } ${dragParentId === parent.id ? "opacity-40" : ""}`}
+                >
                   <div className="px-5 py-4 border-b border-[#222] flex items-center gap-4 flex-wrap">
+                    <GripVertical size={14} className="text-[#333] hover:text-[#555] cursor-grab shrink-0" />
                     <button
                       onClick={() => setCollapsedProducts((prev) => ({ ...prev, [parent.id]: !prev[parent.id] }))}
                       className="text-[#555] hover:text-white transition-colors shrink-0"
