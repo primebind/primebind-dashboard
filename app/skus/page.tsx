@@ -557,14 +557,6 @@ export default function SKUs() {
                           <span className="text-[10px] text-[#555]">{parent.isInventoryItem === false ? "Value" : "Retail Price"}</span>
                           <span className="text-sm text-green-400 font-medium">{fmt(parent.retailPrice)}</span>
                         </div>
-                        {parent.isInventoryItem !== false && !(collapsedProducts[parent.id] ?? true) && (
-                          <div className="flex flex-col gap-0.5">
-                            <span className="text-[10px] text-[#555]">Inventory</span>
-                            <span className="text-sm text-white font-medium">
-                              {children.reduce((sum, c) => sum + c.unitsInInventory, 0).toLocaleString()}
-                            </span>
-                          </div>
-                        )}
                         <div className="flex items-center gap-2 ml-auto">
                           <select
                             value={parent.itemStatus ?? "Idea"}
