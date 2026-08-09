@@ -138,6 +138,7 @@ export default function SKUs() {
 
   // Product Design & Development (per-product tab)
   const [productTab, setProductTab] = useState<Record<string, "colorways" | "design">>({});
+  const [collapsedProducts, setCollapsedProducts] = useState<Record<string, boolean>>({});
   const [devItems, setDevItems] = useState<DevItem[]>([]);
   const [addingDevTo, setAddingDevTo] = useState<string | null>(null);
   const [devForm, setDevForm] = useState({ item: "", owner: "Enrique" as DevOwner, status: "Idea" as DevStatus });
@@ -413,6 +414,12 @@ export default function SKUs() {
               return (
                 <div key={parent.id} className="bg-[#111] border border-[#222] rounded-xl overflow-hidden">
                   <div className="px-5 py-4 border-b border-[#222] flex items-center gap-4 flex-wrap">
+                    <button
+                      onClick={() => setCollapsedProducts((prev) => ({ ...prev, [parent.id]: !prev[parent.id] }))}
+                      className="text-[#555] hover:text-white transition-colors shrink-0"
+                    >
+                      {collapsedProducts[parent.id] ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
+                    </button>
                     <p className="text-white font-semibold text-sm w-36 shrink-0">{parent.name}</p>
 
                     {isEditing ? (
@@ -471,6 +478,8 @@ export default function SKUs() {
                     )}
                   </div>
 
+                  {!collapsedProducts[parent.id] && (
+                  <>
                   <div className="flex gap-1 px-5 pt-2 border-b border-[#1a1a1a]">
                     {(["colorways", "design"] as const).map((key) => (
                       <button
@@ -692,6 +701,8 @@ export default function SKUs() {
                       </div>
                     );
                   })()}
+                  </>
+                  )}
                 </div>
               );
             })}
