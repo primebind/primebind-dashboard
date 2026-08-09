@@ -114,6 +114,22 @@ const DEV_DEFAULTS: DevItem[] = [
     id: "findmy", skuId: "9pb", item: "FindMy seamlessness", owner: "Both", status: "In Design",
     updates: [{ id: "f1", date: "2026-08-08", text: "Functionally solved already (proven in other projects) — purely a cosmetic/integration challenge. Exterior charging/activation tried, looked bad. Better direction: interior of back panel. New idea: sell thin MagSafe power banks as an upsell for periodic charging." }],
   },
+  {
+    id: "packaging", skuId: "9pb", item: "Packaging design", owner: "Both", status: "Idea",
+    updates: [{ id: "p1", date: "2026-08-08", text: "Enrique has ideas already; Dylan to help execute/source. Collaborative, needs a call to go through options." }],
+  },
+  {
+    id: "photography", skuId: "9pb", item: "Product photography", owner: "Dylan", status: "Idea",
+    updates: [{ id: "ph1", date: "2026-08-08", text: "Suggested using the same photo team already used for Bullstrap (based in China) — ~$5/pic, great rate if they can shoot these too." }],
+  },
+  {
+    id: "colorcombos", skuId: "9pb", item: "Launch color combos", owner: "Enrique", status: "In Design",
+    updates: [{ id: "c1", date: "2026-08-08", text: "Enrique will finalize. Needs Dylan to send generic/representative pics of the combo options — combos can be locked now even though binders aren't functionally finished yet." }],
+  },
+  {
+    id: "marketing", skuId: "9pb", item: "Social media / marketing campaign", owner: "Enrique", status: "In Design",
+    updates: [{ id: "m1", date: "2026-08-08", text: "Enrique spearheading this himself, not a Dylan item — flagged to him just for visibility on what's moving in parallel." }],
+  },
 ];
 
 const today = () => new Date().toISOString().split("T")[0];
@@ -518,7 +534,7 @@ export default function SKUs() {
                           <span className="text-[10px] text-[#555]">{parent.isInventoryItem === false ? "Value" : "Retail Price"}</span>
                           <span className="text-sm text-green-400 font-medium">{fmt(parent.retailPrice)}</span>
                         </div>
-                        {parent.isInventoryItem !== false && (
+                        {parent.isInventoryItem !== false && !(collapsedProducts[parent.id] ?? true) && (
                           <div className="flex flex-col gap-0.5">
                             <span className="text-[10px] text-[#555]">Inventory</span>
                             <span className="text-sm text-white font-medium">
