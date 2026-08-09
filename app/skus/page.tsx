@@ -174,6 +174,8 @@ export default function SKUs() {
   const [devLogDraft, setDevLogDraft] = useState("");
   const [editingDevId, setEditingDevId] = useState<string | null>(null);
   const [devDraft, setDevDraft] = useState<Partial<DevItem>>({});
+  const [dragDevId, setDragDevId] = useState<string | null>(null);
+  const [dragOverDevId, setDragOverDevId] = useState<string | null>(null);
 
   useEffect(() => {
     const savedSkus = localStorage.getItem("pb_skus");
@@ -251,6 +253,27 @@ export default function SKUs() {
   }
 
   function toggleDevExpand(id: string) { setExpandedDevId(expandedDevId === id ? null : id); }
+
+  function handleDevDragOver(e: React.DragEvent, id: string) {
+    e.preventDefault();
+    setDragOverDevId(id);
+  }
+
+  function handleDevDrop(skuId: string, targetId: string) {
+    if (!dragDevId || dragDevId === targetId) { setDragDevId(null); setDragOverDevId(null); return; }
+    const subset = devItems.filter((i) => i.skuId === skuId);
+    const from = subset.findIndex((i) => i.id === dragDevId);
+    const to = subset.findIndex((i) => i.id === targetId);
+    if (from === -1 || to === -1) { setDragDevId(null); setDragOverDevId(null); return; }
+    const reordered = [...subset];
+    const [moved] = reordered.splice(from, 1);
+    reordered.splice(to, 0, moved);
+    let idx = 0;
+    const rebuilt = devItems.map((i) => (i.skuId === skuId ? reordered[idx++] : i));
+    saveDevItems(rebuilt);
+    setDragDevId(null);
+    setDragOverDevId(null);
+  }
 
   function addDevLog(id: string) {
     if (!devLogDraft.trim()) return;
@@ -659,7 +682,8 @@ export default function SKUs() {
                           <table className="w-full text-sm">
                             <thead>
                               <tr className="text-[#444] text-xs uppercase tracking-wider border-b border-[#1a1a1a]">
-                                <th className="text-left px-5 py-2 pl-10">Item</th>
+                                <th className="text-left px-5 py-2 pl-10 w-10">#</th>
+                                <th className="text-left px-5 py-2">Item</th>
                                 <th className="text-left px-5 py-2">Owner</th>
                                 <th className="text-left px-5 py-2">Status</th>
                                 <th className="text-left px-5 py-2">Log</th>
@@ -667,13 +691,28 @@ export default function SKUs() {
                               </tr>
                             </thead>
                             <tbody>
-                              {items.map((item) => {
+                              {items.map((item, idx) => {
                                 const isExpanded = expandedDevId === item.id;
                                 const isEditingDev = editingDevId === item.id;
                                 return (
                                   <Fragment key={item.id}>
-                                    <tr className="border-b border-[#1a1a1a] hover:bg-[#151515]">
+                                    <tr
+                                      draggable={!isEditingDev}
+                                      onDragStart={() => setDragDevId(item.id)}
+                                      onDragOver={(e) => handleDevDragOver(e, item.id)}
+                                      onDrop={() => handleDevDrop(parent.id, item.id)}
+                                      onDragEnd={() => { setDragDevId(null); setDragOverDevId(null); }}
+                                      className={`border-b border-[#1a1a1a] hover:bg-[#151515] transition-colors ${
+                                        dragOverDevId === item.id && dragDevId !== item.id ? "bg-[#1a1a1a]" : ""
+                                      } ${dragDevId === item.id ? "opacity-40" : ""}`}
+                                    >
                                       <td className="px-5 py-3 pl-10">
+                                        <div className="flex items-center gap-2">
+                                          <GripVertical size={13} className="text-[#333] hover:text-[#555] cursor-grab shrink-0" />
+                                          <span className="text-[#555] font-mono text-xs">{idx + 1}</span>
+                                        </div>
+                                      </td>
+                                      <td className="px-5 py-3">
                                         {isEditingDev ? (
                                           <input className="input w-full" value={devDraft.item || ""} onChange={(e) => setDevDraft({ ...devDraft, item: e.target.value })} autoFocus />
                                         ) : (
@@ -719,7 +758,7 @@ export default function SKUs() {
 
                                     {isExpanded && (
                                       <tr className="border-b border-[#1a1a1a]">
-                                        <td colSpan={5} className="px-10 pb-4 pt-2 bg-[#0d0d0d]">
+                                        <td colSpan={6} className="px-10 pb-4 pt-2 bg-[#0d0d0d]">
                                           {item.updates.length > 0 && (
                                             <div className="space-y-2 mb-3">
                                               {item.updates.map((u) => (
