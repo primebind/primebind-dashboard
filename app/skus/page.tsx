@@ -461,10 +461,10 @@ export default function SKUs() {
                   <div className="px-5 py-4 border-b border-[#222] flex items-center gap-4 flex-wrap">
                     <GripVertical size={14} className="text-[#333] hover:text-[#555] cursor-grab shrink-0" />
                     <button
-                      onClick={() => setCollapsedProducts((prev) => ({ ...prev, [parent.id]: !prev[parent.id] }))}
+                      onClick={() => setCollapsedProducts((prev) => ({ ...prev, [parent.id]: !(prev[parent.id] ?? true) }))}
                       className="text-[#555] hover:text-white transition-colors shrink-0"
                     >
-                      {collapsedProducts[parent.id] ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
+                      {(collapsedProducts[parent.id] ?? true) ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
                     </button>
                     <p className="text-white font-semibold text-sm w-36 shrink-0">{parent.name}</p>
 
@@ -499,8 +499,10 @@ export default function SKUs() {
                       </>
                     ) : (
                       <>
-                        {parent.isInventoryItem === false && (
+                        {parent.isInventoryItem === false ? (
                           <span className="text-[10px] text-yellow-400 border border-yellow-400/30 bg-yellow-400/10 rounded-full px-2 py-0.5 shrink-0">Non-Inventory</span>
+                        ) : (
+                          <span className="text-[10px] text-blue-400 border border-blue-400/30 bg-blue-400/10 rounded-full px-2 py-0.5 shrink-0">Inventory</span>
                         )}
                         {[["Unit Price", fmt(parent.unitPrice)],["Est. Shipping", fmt(parent.estShipping)],["Est. Duties", fmt(parent.estDuties)],["Est. Packaging", fmt(parent.estPackaging)]].map(([label, val]) => (
                           <div key={label} className="flex flex-col gap-0.5">
@@ -539,7 +541,7 @@ export default function SKUs() {
                     )}
                   </div>
 
-                  {!collapsedProducts[parent.id] && (
+                  {!(collapsedProducts[parent.id] ?? true) && (
                   <>
                   <div className="flex gap-1 px-5 pt-2 border-b border-[#1a1a1a]">
                     {(["colorways", "design"] as const).map((key) => (
