@@ -71,7 +71,7 @@ const DEFAULT_SKUS: SKU[] = [
   { id: "9pb-crimson", parentId: "9pb", name: "Crimson", colorHex: "#8b0000", unitPrice: 0, estShipping: 0, estDuties: 0, estPackaging: 0, retailPrice: 0, unitsInInventory: 0, samplesInInventory: 0 },
   { id: "12pb", parentId: null, name: "12 Pocket Binder", colorHex: "", unitPrice: 16.75, estShipping: 0, estDuties: 0, estPackaging: 0, retailPrice: 70, unitsInInventory: 0, samplesInInventory: 0, dylanFernando: 3.5 },
   { id: "cb", parentId: null, name: "Card Box", colorHex: "", unitPrice: 7.5, estShipping: 0, estDuties: 0, estPackaging: 0, retailPrice: 35, unitsInInventory: 0, samplesInInventory: 0, dylanFernando: 1 },
-  { id: "fm9pb", parentId: null, name: "FindMy 9PB", colorHex: "", unitPrice: 19, estShipping: 0, estDuties: 0, estPackaging: 0, retailPrice: 80, unitsInInventory: 0, samplesInInventory: 0, dylanFernando: 3.5 },
+  { id: "fm9pb", parentId: null, name: "FindMy 9PB", colorHex: "", unitPrice: 19, estShipping: 0, estDuties: 0, estPackaging: 1.18, retailPrice: 80, unitsInInventory: 0, samplesInInventory: 0, dylanFernando: 3.5 },
   { id: "fmcb", parentId: null, name: "FindMy Card Box", colorHex: "", unitPrice: 12.5, estShipping: 0, estDuties: 0, estPackaging: 0, retailPrice: 55, unitsInInventory: 0, samplesInInventory: 0, dylanFernando: 1.5 },
 ];
 
