@@ -20,7 +20,7 @@ const DEFAULT_MILESTONES: Milestone[] = [
   { id: "6", date: "Aug 14", label: "KS identity/payment confirmed", done: false },
   { id: "7", date: "Aug 21", label: "Submit campaign for KS review", done: false },
   { id: "8", date: "Aug 29–31", label: "Final emails to pre-launch list", done: false },
-  { id: "9", date: "Sept 1 — 8 AM EST", label: "LAUNCH", done: false },
+  { id: "9", date: "Feb 1 — 8 AM EST", label: "LAUNCH", done: false },
 ];
 
 export default function Overview() {

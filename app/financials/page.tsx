@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, Fragment } from "react";
 import { Upload, Download, Trash2, ChevronRight, ChevronDown, Link, Unlink } from "lucide-react";
-import { loadJSON, saveJSON, restoreAllRaw, getAllPbRaw } from "@/lib/safeStorage";
+import { loadJSON, saveJSON, restoreAllRaw } from "@/lib/safeStorage";
 
 type Account = { number: string; name: string; type: string };
 
@@ -528,26 +528,6 @@ export default function Financials() {
           <p className="text-[#888] text-sm mt-1">Upload CSV from US Bank or Chase</p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => {
-              const data = getAllPbRaw();
-              const payload = { exportedAt: new Date().toISOString(), version: 1, data };
-              const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement("a");
-              a.href = url;
-              a.download = `primebind-dashboard-backup-${new Date().toISOString().slice(0, 10)}.json`;
-              document.body.appendChild(a);
-              a.click();
-              a.remove();
-              URL.revokeObjectURL(url);
-            }}
-            className="flex items-center gap-2 bg-transparent text-[#ccc] text-sm font-medium px-4 py-2 rounded-lg border border-[#333] hover:border-[#555] hover:text-white transition-colors"
-            title="Download all saved dashboard data as a JSON file — for restoring this dashboard, not for tax/accounting use"
-          >
-            <Download size={16} />
-            Export Backup
-          </button>
           <label
             className="flex items-center gap-2 bg-transparent text-[#ccc] text-sm font-medium px-4 py-2 rounded-lg border border-[#333] hover:border-[#555] hover:text-white transition-colors cursor-pointer"
             title="Restore the whole dashboard from a previously exported backup file"

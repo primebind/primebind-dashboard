@@ -75,7 +75,7 @@ export default function Sidebar() {
   }, {});
 
   const [open, setOpen] = useState<Record<string, boolean>>(initialOpen);
-  const [ksDate, setKsDate] = useState("2026-10-01");
+  const [ksDate, setKsDate] = useState("2027-02-01");
   const [editingDate, setEditingDate] = useState(false);
 
   useEffect(() => {
