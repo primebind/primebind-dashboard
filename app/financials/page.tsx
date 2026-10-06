@@ -507,10 +507,43 @@ export default function Financials() {
               URL.revokeObjectURL(url);
             }}
             className="flex items-center gap-2 bg-transparent text-[#ccc] text-sm font-medium px-4 py-2 rounded-lg border border-[#333] hover:border-[#555] hover:text-white transition-colors"
-            title="Download all saved dashboard data as a JSON file"
+            title="Download all saved dashboard data as a JSON file — for restoring this dashboard, not for tax/accounting use"
           >
             <Download size={16} />
             Export Backup
+          </button>
+          <button
+            onClick={() => {
+              const esc = (v: string) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+              const rows = [
+                ["Date", "Bank", "Vendor", "Description", "Amount", "Account Number", "Account Name", "Comments"],
+                ...transactions.map((t) => [
+                  t.date,
+                  t.bank,
+                  t.vendor || "",
+                  t.description,
+                  t.amount.toFixed(2),
+                  t.account || "",
+                  accountByNumber(t.account)?.name || "",
+                  t.comments || "",
+                ]),
+              ];
+              const csv = rows.map((r) => r.map(esc).join(",")).join("\n");
+              const blob = new Blob([csv], { type: "text/csv" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = `primebind-transactions-${new Date().toISOString().slice(0, 10)}.csv`;
+              document.body.appendChild(a);
+              a.click();
+              a.remove();
+              URL.revokeObjectURL(url);
+            }}
+            className="flex items-center gap-2 bg-transparent text-[#ccc] text-sm font-medium px-4 py-2 rounded-lg border border-[#333] hover:border-[#555] hover:text-white transition-colors"
+            title="Download your transactions as a CSV, with account names — for your accountant or tax prep"
+          >
+            <Download size={16} />
+            Export CSV
           </button>
           <label className="flex items-center gap-2 bg-white text-black text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#e0e0e0] transition-colors cursor-pointer">
             <Upload size={16} />

@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import { LayoutDashboard, Users, BarChart2, Package, DollarSign, Rocket, ClipboardList, Inbox, Bell, ChevronDown, Mail, Globe, Lightbulb, Film, TrendingDown, StickyNote } from "lucide-react";
-import BackupPanel from "@/components/BackupPanel";
 
 type NavItem = { href: string; label: string; icon: React.ElementType };
 type NavGroup = { label: string; items: NavItem[] };
@@ -151,10 +150,6 @@ export default function Sidebar() {
             KS Launch: {formatKsDate(ksDate)}
           </button>
         )}
-
-        <div className="pt-2 border-t border-[#222]">
-          <BackupPanel />
-        </div>
       </div>
     </aside>
   );
