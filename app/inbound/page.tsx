@@ -2,6 +2,7 @@
 
 import { useState, useEffect, Fragment } from "react";
 import { Plus, X, ChevronDown, ChevronRight, Check, Pencil } from "lucide-react";
+import { loadJSON, saveJSON } from "@/lib/safeStorage";
 
 type InboundStatus = "Pending" | "In Transit" | "Partial" | "Received" | "Cancelled";
 
@@ -96,37 +97,32 @@ export default function InboundPage() {
   });
 
   useEffect(() => {
-    const raw = localStorage.getItem("pb_inbounds");
-    if (raw) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const raw = loadJSON<any[]>("pb_inbounds", []);
+    setInbounds(raw.map((i) => ({
+      ...i,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      setInbounds(JSON.parse(raw).map((i: any) => ({
-        ...i,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        lines: (i.lines || []).map((l: any) => ({
-          ...l,
-          poItemId: l.poItemId ?? "",
-          skuId: l.skuId ?? "",
-          colorwayId: l.colorwayId ?? "",
-          qtyReceived: l.qtyReceived ?? 0,
-        })),
-      })));
-    }
-    const rawPos = localStorage.getItem("pb_pos");
-    if (rawPos) setPos(JSON.parse(rawPos));
-    const rawVendors = localStorage.getItem("pb_vendors");
-    if (rawVendors) setVendors(JSON.parse(rawVendors));
-    const rawSkus = localStorage.getItem("pb_skus");
-    if (rawSkus) setSkus(JSON.parse(rawSkus));
+      lines: (i.lines || []).map((l: any) => ({
+        ...l,
+        poItemId: l.poItemId ?? "",
+        skuId: l.skuId ?? "",
+        colorwayId: l.colorwayId ?? "",
+        qtyReceived: l.qtyReceived ?? 0,
+      })),
+    })));
+    setPos(loadJSON<StoredPO[]>("pb_pos", []));
+    setVendors(loadJSON<StoredVendor[]>("pb_vendors", []));
+    setSkus(loadJSON<StoredSKU[]>("pb_skus", []));
   }, []);
 
   function saveInbounds(updated: Inbound[]) {
     setInbounds(updated);
-    localStorage.setItem("pb_inbounds", JSON.stringify(updated));
+    saveJSON("pb_inbounds", updated);
   }
 
   function saveSkus(updated: StoredSKU[]) {
     setSkus(updated);
-    localStorage.setItem("pb_skus", JSON.stringify(updated));
+    saveJSON("pb_skus", updated);
   }
 
   function onSelectPO(poId: string) {

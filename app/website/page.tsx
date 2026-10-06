@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Plus, Trash2, GripVertical, X, ChevronDown, ChevronRight } from "lucide-react";
+import { loadJSON, saveJSON } from "@/lib/safeStorage";
 
 type SKU = { id: string; parentId: string | null; name: string; retailPrice: number };
 
@@ -30,14 +31,11 @@ type WebsiteData = {
 const EMPTY: WebsiteData = { products: [], others: [], utility: [] };
 
 function load(): WebsiteData {
-  try {
-    const raw = localStorage.getItem("pb_website");
-    return raw ? { ...EMPTY, ...JSON.parse(raw) } : EMPTY;
-  } catch { return EMPTY; }
+  return { ...EMPTY, ...loadJSON<Partial<WebsiteData>>("pb_website", {}) };
 }
 
 function persist(data: WebsiteData) {
-  localStorage.setItem("pb_website", JSON.stringify(data));
+  saveJSON("pb_website", data);
 }
 
 // ── Products Tab ─────────────────────────────────────────────────────────────
@@ -53,10 +51,9 @@ function ProductsTab() {
 
   useEffect(() => {
     setData(load());
-    const raw = localStorage.getItem("pb_skus");
-    if (raw) {
-      const parsed: SKU[] = JSON.parse(raw);
-      setAllSkus(parsed.filter((s) => !s.parentId));
+    const loadedSkus = loadJSON<SKU[] | null>("pb_skus", null);
+    if (loadedSkus) {
+      setAllSkus(loadedSkus.filter((s) => !s.parentId));
     } else {
       // defaults
       setAllSkus([

@@ -2,6 +2,7 @@
 
 import { Fragment, useState, useEffect } from "react";
 import { Plus, Trash2, Copy, ChevronDown, ChevronRight, Pencil, Check, X } from "lucide-react";
+import { loadJSON, saveJSON } from "@/lib/safeStorage";
 
 type Status = "Prospecting" | "Contacted" | "Interested" | "Package Sent" | "Posted" | "Passed";
 type Tier = 1 | 2 | 3;
@@ -66,18 +67,14 @@ export default function Influencers() {
   const [editDraft, setEditDraft] = useState<Partial<Influencer>>({});
 
   useEffect(() => {
-    const saved = localStorage.getItem("pb_influencers");
-    if (saved) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      setInfluencers(JSON.parse(saved).map((i: any) => ({ ...i, shipments: i.shipments || [] })));
-    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const savedInfluencers = loadJSON<any[]>("pb_influencers", []);
+    setInfluencers(savedInfluencers.map((i) => ({ ...i, shipments: i.shipments || [] })));
 
-    const rawSkus = localStorage.getItem("pb_skus");
-    const loadedSkus: SKU[] = rawSkus ? JSON.parse(rawSkus) : [];
+    const loadedSkus = loadJSON<SKU[]>("pb_skus", []);
     setSkus(loadedSkus);
 
-    const rawColors = localStorage.getItem("pb_colors");
-    const loadedColors: Color[] = rawColors ? JSON.parse(rawColors) : DEFAULT_COLORS;
+    const loadedColors = loadJSON<Color[]>("pb_colors", DEFAULT_COLORS);
     setColors(loadedColors);
 
     const firstParent = loadedSkus.find((s) => s.parentId === null);
@@ -90,7 +87,7 @@ export default function Influencers() {
 
   function save(updated: Influencer[]) {
     setInfluencers(updated);
-    localStorage.setItem("pb_influencers", JSON.stringify(updated));
+    saveJSON("pb_influencers", updated);
   }
 
   function add() {

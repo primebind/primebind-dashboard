@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Plus, Trash2, Pencil, Check, X } from "lucide-react";
+import { loadJSON, saveJSON } from "@/lib/safeStorage";
 
 import {
   ComposedChart, Line, XAxis, YAxis, CartesianGrid,
@@ -63,25 +64,18 @@ export default function CashflowPage() {
   const [editDraft, setEditDraft] = useState<Partial<ProjectedItem>>({});
 
   useEffect(() => {
-    const raw = localStorage.getItem("pb_financials");
-    if (raw) {
-      const parsed = JSON.parse(raw) as FinancialEntry[];
-      setActuals(parsed.sort((a, b) => a.date.localeCompare(b.date)));
-    }
+    const financials = loadJSON<FinancialEntry[]>("pb_financials", []);
+    setActuals([...financials].sort((a, b) => a.date.localeCompare(b.date)));
 
-    const rawP = localStorage.getItem("pb_cashflow_projected");
-    if (rawP) {
-      setProjected(JSON.parse(rawP));
-    } else {
-      setProjected(DEFAULT_PROJECTED);
-      localStorage.setItem("pb_cashflow_projected", JSON.stringify(DEFAULT_PROJECTED));
-    }
+    const loadedProjected = loadJSON<ProjectedItem[]>("pb_cashflow_projected", DEFAULT_PROJECTED);
+    setProjected(loadedProjected);
+    if (loadedProjected === DEFAULT_PROJECTED) saveJSON("pb_cashflow_projected", DEFAULT_PROJECTED);
   }, []);
 
   function saveProjected(items: ProjectedItem[]) {
     const sorted = [...items].sort((a, b) => a.date.localeCompare(b.date));
     setProjected(sorted);
-    localStorage.setItem("pb_cashflow_projected", JSON.stringify(sorted));
+    saveJSON("pb_cashflow_projected", sorted);
   }
 
   function addItem() {

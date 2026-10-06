@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Plus, X, GripVertical, Pencil, Check } from "lucide-react";
+import { loadJSON, saveJSON } from "@/lib/safeStorage";
 
 type Milestone = {
   id: string;
@@ -33,13 +34,12 @@ export default function Overview() {
   const [draft, setDraft] = useState<Milestone>({ id: "", date: "", label: "", done: false });
 
   useEffect(() => {
-    const saved = localStorage.getItem("pb_timeline");
-    setMilestones(saved ? JSON.parse(saved) : DEFAULT_MILESTONES);
+    setMilestones(loadJSON<Milestone[]>("pb_timeline", DEFAULT_MILESTONES));
   }, []);
 
   function saveMilestones(updated: Milestone[]) {
     setMilestones(updated);
-    localStorage.setItem("pb_timeline", JSON.stringify(updated));
+    saveJSON("pb_timeline", updated);
   }
 
   function toggle(id: string) {

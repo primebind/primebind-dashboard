@@ -2,6 +2,7 @@
 
 import { Fragment, useState, useEffect } from "react";
 import { Plus, Trash2, Pencil, Check, X, ChevronDown, ChevronRight, GripVertical } from "lucide-react";
+import { loadJSON, saveJSON } from "@/lib/safeStorage";
 
 type SKU = {
   id: string;
@@ -179,60 +180,55 @@ export default function SKUs() {
   const [dragOverDevId, setDragOverDevId] = useState<string | null>(null);
 
   useEffect(() => {
-    const savedSkus = localStorage.getItem("pb_skus");
-    if (savedSkus) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      setSkus(JSON.parse(savedSkus).map((s: any) => ({ ...s, retailPrice: s.retailPrice ?? 0 })));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const loadedSkus = loadJSON<any[] | null>("pb_skus", null);
+    if (loadedSkus) {
+      setSkus(loadedSkus.map((s) => ({ ...s, retailPrice: s.retailPrice ?? 0 })));
     } else {
       setSkus(DEFAULT_SKUS);
     }
 
-    const savedColors = localStorage.getItem("pb_colors");
-    const loadedColors: Color[] = savedColors ? JSON.parse(savedColors) : DEFAULT_COLORS;
+    const loadedColors = loadJSON<Color[]>("pb_colors", DEFAULT_COLORS);
     setColors(loadedColors);
     if (loadedColors.length) setSelectedColorId(loadedColors[0].id);
 
-    const savedAssumptions = localStorage.getItem("pb_profit_assumptions");
-    if (savedAssumptions) setAssumptions({ ...DEFAULT_ASSUMPTIONS, ...JSON.parse(savedAssumptions) });
+    setAssumptions({ ...DEFAULT_ASSUMPTIONS, ...loadJSON<Partial<ProfitAssumptions>>("pb_profit_assumptions", {}) });
 
-    const savedInbounds = localStorage.getItem("pb_inbounds");
-    if (savedInbounds) {
-      const map: Record<string, number> = {};
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const loadedInbounds = loadJSON<any[]>("pb_inbounds", []);
+    const map: Record<string, number> = {};
+    loadedInbounds.forEach((inbound) => {
+      if (inbound.status === "Received" || inbound.status === "Cancelled") return;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      JSON.parse(savedInbounds).forEach((inbound: any) => {
-        if (inbound.status === "Received" || inbound.status === "Cancelled") return;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (inbound.lines || []).forEach((line: any) => {
-          if (!line.colorwayId) return;
-          const outstanding = Math.max(0, (line.qtyOrdered || 0) - (line.qtyReceived || 0));
-          map[line.colorwayId] = (map[line.colorwayId] || 0) + outstanding;
-        });
+      (inbound.lines || []).forEach((line: any) => {
+        if (!line.colorwayId) return;
+        const outstanding = Math.max(0, (line.qtyOrdered || 0) - (line.qtyReceived || 0));
+        map[line.colorwayId] = (map[line.colorwayId] || 0) + outstanding;
       });
-      setOnOrderMap(map);
-    }
+    });
+    setOnOrderMap(map);
 
-    const savedDev = localStorage.getItem("pb_product_dev_items");
-    setDevItems(savedDev ? JSON.parse(savedDev) : DEV_DEFAULTS);
+    setDevItems(loadJSON<DevItem[]>("pb_product_dev_items", DEV_DEFAULTS));
   }, []);
 
   function saveSkus(updated: SKU[]) {
     setSkus(updated);
-    localStorage.setItem("pb_skus", JSON.stringify(updated));
+    saveJSON("pb_skus", updated);
   }
 
   function saveColors(updated: Color[]) {
     setColors(updated);
-    localStorage.setItem("pb_colors", JSON.stringify(updated));
+    saveJSON("pb_colors", updated);
   }
 
   function saveAssumptions(updated: ProfitAssumptions) {
     setAssumptions(updated);
-    localStorage.setItem("pb_profit_assumptions", JSON.stringify(updated));
+    saveJSON("pb_profit_assumptions", updated);
   }
 
   function saveDevItems(updated: DevItem[]) {
     setDevItems(updated);
-    localStorage.setItem("pb_product_dev_items", JSON.stringify(updated));
+    saveJSON("pb_product_dev_items", updated);
   }
 
   function addDevItem(skuId: string) {

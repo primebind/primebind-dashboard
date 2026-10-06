@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { LayoutDashboard, Users, BarChart2, Package, DollarSign, Rocket, ClipboardList, Inbox, Bell, ChevronDown, Mail, Globe, Lightbulb, Film, CloudUpload, CloudDownload, TrendingDown, StickyNote } from "lucide-react";
+import BackupPanel from "@/components/BackupPanel";
 
 const API_KEY = "pb-updates-2026-secure-key";
 
@@ -270,6 +271,10 @@ export default function Sidebar() {
             KS Launch: {formatKsDate(ksDate)}
           </button>
         )}
+
+        <div className="pt-2 border-t border-[#222]">
+          <BackupPanel />
+        </div>
       </div>
     </aside>
   );

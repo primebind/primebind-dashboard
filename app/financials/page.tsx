@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, Fragment } from "react";
 import { Upload, Trash2, ChevronRight, ChevronDown, Link, Unlink } from "lucide-react";
+import { loadJSON, saveJSON } from "@/lib/safeStorage";
 
 type Account = { number: string; name: string; type: string };
 
@@ -317,30 +318,25 @@ export default function Financials() {
   const [poList, setPoList] = useState<PoSummary[]>([]);
 
   useEffect(() => {
-    const savedPos = localStorage.getItem("pb_pos");
-    if (savedPos) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const parsed: any[] = JSON.parse(savedPos);
-      setPoList(parsed.map((p, idx) => {
-        const total = (p.items || []).reduce((s: number, i: { qty: number; unitCost: number }) => s + i.qty * i.unitCost, 0);
-        const paid = (p.payments || []).reduce((s: number, pay: { amount: number }) => s + pay.amount, 0);
-        return { id: p.id, poNum: `PO-${String(idx + 1).padStart(3, "0")}`, vendorName: p.vendorName || "—", total, balance: total - paid, items: p.items || [] };
-      }));
-    }
-    const saved = localStorage.getItem("pb_financials");
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      // migrate old category field to account
-      setTransactions(parsed.map((t: Transaction & { category?: string }) => ({
-        ...t,
-        account: t.account || "",
-      })));
-    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const savedPos = loadJSON<any[]>("pb_pos", []);
+    setPoList(savedPos.map((p, idx) => {
+      const total = (p.items || []).reduce((s: number, i: { qty: number; unitCost: number }) => s + i.qty * i.unitCost, 0);
+      const paid = (p.payments || []).reduce((s: number, pay: { amount: number }) => s + pay.amount, 0);
+      return { id: p.id, poNum: `PO-${String(idx + 1).padStart(3, "0")}`, vendorName: p.vendorName || "—", total, balance: total - paid, items: p.items || [] };
+    }));
+
+    const savedTransactions = loadJSON<(Transaction & { category?: string })[]>("pb_financials", []);
+    // migrate old category field to account
+    setTransactions(savedTransactions.map((t) => ({
+      ...t,
+      account: t.account || "",
+    })));
   }, []);
 
   function save(updated: Transaction[]) {
     setTransactions(updated);
-    localStorage.setItem("pb_financials", JSON.stringify(updated));
+    saveJSON("pb_financials", updated);
   }
 
   function remove(id: string) { save(transactions.filter((t) => t.id !== id)); }
@@ -359,7 +355,7 @@ export default function Financials() {
 
   function matchToPO(txnId: string, po: PoSummary) {
     // collect finTxnIds from the PO's payment records so we can remove the old posted entry
-    const savedPos: { id: string; payments: { finTxnIds?: string[] }[] }[] = JSON.parse(localStorage.getItem("pb_pos") || "[]");
+    const savedPos = loadJSON<{ id: string; payments: { finTxnIds?: string[] }[] }[]>("pb_pos", []);
     const poRecord = savedPos.find((p) => p.id === po.id);
     const finIdsToRemove = (poRecord?.payments ?? []).flatMap((pay) => pay.finTxnIds ?? []);
 

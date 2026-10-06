@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Plus, Trash2, Pencil, Check, X, ChevronDown, ChevronRight, Upload } from "lucide-react";
+import { loadJSON, saveJSON } from "@/lib/safeStorage";
 
 type POStatus = "Open" | "Partial" | "Paid" | "Cancelled";
 type POItem = { id: string; description: string; qty: number; unitCost: number; account: string };
@@ -87,28 +88,25 @@ export default function PurchaseOrders() {
   const [expandedVendorId, setExpandedVendorId] = useState<string | null>(null);
 
   useEffect(() => {
-    const savedPos = localStorage.getItem("pb_pos");
-    if (savedPos) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const savedPos = loadJSON<any[]>("pb_pos", []);
+    setPos(savedPos.map((p) => ({
+      ...p,
+      vendorId: p.vendorId || "",
+      vendorName: p.vendorName || p.vendor || "",
+      payments: p.payments || (p.amountPaid > 0 ? [{ id: "migrated", date: p.date, amount: p.amountPaid, method: "Manual", bankRef: "" }] : []),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      setPos(JSON.parse(savedPos).map((p: any) => ({
-        ...p,
-        vendorId: p.vendorId || "",
-        vendorName: p.vendorName || p.vendor || "",
-        payments: p.payments || (p.amountPaid > 0 ? [{ id: "migrated", date: p.date, amount: p.amountPaid, method: "Manual", bankRef: "" }] : []),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        items: (p.items || []).map((i: any) => ({ ...i, account: i.account ?? "" })),
-      })));
-    }
-    const savedVendors = localStorage.getItem("pb_vendors");
-    if (savedVendors) {
-      const BLANK_BANKING = { swift: "", bankAccountNumber: "", bankAccountName: "", bankName: "", bankAddress: "", beneficiaryAddress: "" };
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      setVendors(JSON.parse(savedVendors).map((v: any) => ({ ...BLANK_BANKING, ...v })));
-    }
+      items: (p.items || []).map((i: any) => ({ ...i, account: i.account ?? "" })),
+    })));
+
+    const BLANK_BANKING = { swift: "", bankAccountNumber: "", bankAccountName: "", bankName: "", bankAddress: "", beneficiaryAddress: "" };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const savedVendors = loadJSON<any[]>("pb_vendors", []);
+    setVendors(savedVendors.map((v) => ({ ...BLANK_BANKING, ...v })));
   }, []);
 
-  function savePos(updated: PurchaseOrder[]) { setPos(updated); localStorage.setItem("pb_pos", JSON.stringify(updated)); }
-  function saveVendors(updated: Vendor[]) { setVendors(updated); localStorage.setItem("pb_vendors", JSON.stringify(updated)); }
+  function savePos(updated: PurchaseOrder[]) { setPos(updated); saveJSON("pb_pos", updated); }
+  function saveVendors(updated: Vendor[]) { setVendors(updated); saveJSON("pb_vendors", updated); }
 
   // Maps plain-text account names (used in PO line items) to chart-of-accounts numbers
   const ACCOUNT_MAP: Record<string, string> = {
@@ -133,18 +131,19 @@ export default function PurchaseOrders() {
     main: { date: string; description: string; bank: string },
     lines: { description: string; amount: number; account: string }[]
   ): string[] {
-    const existing = JSON.parse(localStorage.getItem("pb_financials") || "[]");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const existing = loadJSON<any[]>("pb_financials", []);
     const id = `po-${Date.now()}-${Math.random()}`;
     const total = lines.reduce((sum, l) => sum + l.amount, 0);
     const entry = { id, date: main.date, description: main.description, amount: total, account: "", bank: main.bank, lines };
-    localStorage.setItem("pb_financials", JSON.stringify([...existing, entry]));
+    saveJSON("pb_financials", [...existing, entry]);
     return [id];
   }
 
   function removeFromFinancials(ids: string[]) {
     if (!ids?.length) return;
-    const existing = JSON.parse(localStorage.getItem("pb_financials") || "[]");
-    localStorage.setItem("pb_financials", JSON.stringify(existing.filter((t: { id: string }) => !ids.includes(t.id))));
+    const existing = loadJSON<{ id: string }[]>("pb_financials", []);
+    saveJSON("pb_financials", existing.filter((t) => !ids.includes(t.id)));
   }
 
   function deletePayment(poId: string, paymentId: string) {

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Pencil, Check, X, RefreshCw } from "lucide-react";
+import { loadJSON, saveJSON } from "@/lib/safeStorage";
 
 type Subscriber = { id: number; email: string; subscribedAt: string };
 type KitData = { subscribers: number; goal: number; lastSynced: string | null };
@@ -9,16 +10,11 @@ type KitData = { subscribers: number; goal: number; lastSynced: string | null };
 const DEFAULT: KitData = { subscribers: 0, goal: 1000, lastSynced: null };
 
 function load(): KitData {
-  try {
-    const raw = localStorage.getItem("pb_kit");
-    return raw ? { ...DEFAULT, ...JSON.parse(raw) } : DEFAULT;
-  } catch {
-    return DEFAULT;
-  }
+  return { ...DEFAULT, ...loadJSON<Partial<KitData>>("pb_kit", {}) };
 }
 
 function persist(data: KitData) {
-  localStorage.setItem("pb_kit", JSON.stringify(data));
+  saveJSON("pb_kit", data);
 }
 
 export default function KitPage() {
@@ -34,8 +30,7 @@ export default function KitPage() {
   useEffect(() => {
     const saved = load();
     setData(saved);
-    const savedRows = localStorage.getItem("pb_kit_subscribers");
-    if (savedRows) setRows(JSON.parse(savedRows));
+    setRows(loadJSON<Subscriber[]>("pb_kit_subscribers", []));
     // auto-sync on mount
     doSync(saved);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -70,7 +65,7 @@ export default function KitPage() {
       update(next);
       const list = subscribers ?? [];
       setRows(list);
-      localStorage.setItem("pb_kit_subscribers", JSON.stringify(list));
+      saveJSON("pb_kit_subscribers", list);
     } catch {
       setSyncError("Network error — try again.");
     } finally {

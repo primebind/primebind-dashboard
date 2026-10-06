@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Plus, Trash2, TrendingUp, TrendingDown } from "lucide-react";
+import { loadJSON, saveJSON } from "@/lib/safeStorage";
 
 type AdCampaign = {
   id: string;
@@ -21,13 +22,12 @@ export default function Ads() {
   const [form, setForm] = useState({ name: "", platform: "Meta", spend: "", impressions: "", clicks: "", conversions: "", revenue: "", date: new Date().toISOString().split("T")[0] });
 
   useEffect(() => {
-    const saved = localStorage.getItem("pb_ads");
-    if (saved) setCampaigns(JSON.parse(saved));
+    setCampaigns(loadJSON<AdCampaign[]>("pb_ads", []));
   }, []);
 
   function save(updated: AdCampaign[]) {
     setCampaigns(updated);
-    localStorage.setItem("pb_ads", JSON.stringify(updated));
+    saveJSON("pb_ads", updated);
   }
 
   function add() {

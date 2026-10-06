@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Plus, Trash2, Check, Pencil, X } from "lucide-react";
+import { loadJSON, saveJSON } from "@/lib/safeStorage";
 
 type Category = "General" | "Ask Dylan" | "To Consider";
 
@@ -33,13 +34,12 @@ export default function Notes() {
   const [draft, setDraft] = useState<Note>({ id: "", text: "", category: "General", resolved: false, createdAt: "" });
 
   useEffect(() => {
-    const saved = localStorage.getItem("pb_notes");
-    if (saved) setNotes(JSON.parse(saved));
+    setNotes(loadJSON<Note[]>("pb_notes", []));
   }, []);
 
   function save(updated: Note[]) {
     setNotes(updated);
-    localStorage.setItem("pb_notes", JSON.stringify(updated));
+    saveJSON("pb_notes", updated);
   }
 
   function add() {

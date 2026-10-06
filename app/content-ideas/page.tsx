@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Plus, Trash2, Pencil } from "lucide-react";
+import { loadJSON, saveJSON } from "@/lib/safeStorage";
 
 type Status = "Idea" | "Posted" | "Winner" | "Loser";
 type Platform = "TikTok" | "Instagram" | "YouTube" | "Other";
@@ -62,13 +63,12 @@ export default function ContentIdeas() {
   const [filter, setFilter] = useState<Status | "All">("All");
 
   useEffect(() => {
-    const saved = localStorage.getItem("pb_content_ideas");
-    if (saved) setIdeas(JSON.parse(saved).map(normalize));
+    setIdeas(loadJSON<Record<string, unknown>[]>("pb_content_ideas", []).map(normalize));
   }, []);
 
   function save(updated: ContentIdea[]) {
     setIdeas(updated);
-    localStorage.setItem("pb_content_ideas", JSON.stringify(updated));
+    saveJSON("pb_content_ideas", updated);
   }
 
   function togglePlatform(p: Platform) {

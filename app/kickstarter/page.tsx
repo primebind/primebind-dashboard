@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Plus, Trash2, Pencil, Check, X } from "lucide-react";
+import { loadJSON, saveJSON } from "@/lib/safeStorage";
 
 const DEFAULT_KS_GOAL = 25000;
 const DEFAULT_BREAKEVEN = 20000;
@@ -350,24 +351,20 @@ export default function Kickstarter() {
   const [breakevenDraft, setBreakevenDraft] = useState("");
 
   useEffect(() => {
-    const rawSkus = localStorage.getItem("pb_skus");
-    if (rawSkus) setSkus(JSON.parse(rawSkus));
+    setSkus(loadJSON<SKU[]>("pb_skus", []));
+    setColors(loadJSON<Color[]>("pb_colors", DEFAULT_COLORS));
+    setAssumptions({ ...DEFAULT_ASSUMPTIONS, ...loadJSON<Partial<ProfitAssumptions>>("pb_profit_assumptions", {}) });
 
-    const rawColors = localStorage.getItem("pb_colors");
-    setColors(rawColors ? JSON.parse(rawColors) : DEFAULT_COLORS);
-
-    const rawAssumptions = localStorage.getItem("pb_profit_assumptions");
-    if (rawAssumptions) setAssumptions({ ...DEFAULT_ASSUMPTIONS, ...JSON.parse(rawAssumptions) });
-
+    // Plain numeric strings, not JSON — read directly.
     const goal = localStorage.getItem("pb_ks_goal");
     if (goal) setKsGoal(parseInt(goal));
     const be = localStorage.getItem("pb_ks_breakeven");
     if (be) setBreakeven(parseInt(be));
 
-    const t = localStorage.getItem("pb_ks_tiers");
-    if (t) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      setTiers(JSON.parse(t).map((tier: any) => ({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const loadedTiers = loadJSON<any[] | null>("pb_ks_tiers", null);
+    if (loadedTiers) {
+      setTiers(loadedTiers.map((tier) => ({
         ...tier,
         contents: typeof tier.contents === "string" ? [] : (tier.contents || []),
       })));
@@ -375,18 +372,18 @@ export default function Kickstarter() {
       setTiers(DEFAULT_TIERS);
     }
 
-    const a = localStorage.getItem("pb_ks_addons");
-    if (a) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      setAddons(JSON.parse(a).map((addon: any) => ({ ...addon, skuId: addon.skuId || "" })));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const loadedAddons = loadJSON<any[] | null>("pb_ks_addons", null);
+    if (loadedAddons) {
+      setAddons(loadedAddons.map((addon) => ({ ...addon, skuId: addon.skuId || "" })));
     } else {
       setAddons(DEFAULT_ADDONS);
     }
 
-    const u = localStorage.getItem("pb_ks_unlockables");
-    if (u) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      setUnlockables(JSON.parse(u).map((item: any) => ({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const loadedUnlockables = loadJSON<any[] | null>("pb_ks_unlockables", null);
+    if (loadedUnlockables) {
+      setUnlockables(loadedUnlockables.map((item) => ({
         ...item,
         refType: item.refType || "color",
         refId: item.refId || "",
@@ -396,9 +393,9 @@ export default function Kickstarter() {
     }
   }, []);
 
-  function saveTiers(updated: Tier[]) { setTiers(updated); localStorage.setItem("pb_ks_tiers", JSON.stringify(updated)); }
-  function saveAddons(updated: Addon[]) { setAddons(updated); localStorage.setItem("pb_ks_addons", JSON.stringify(updated)); }
-  function saveUnlockables(updated: Unlockable[]) { setUnlockables(updated); localStorage.setItem("pb_ks_unlockables", JSON.stringify(updated)); }
+  function saveTiers(updated: Tier[]) { setTiers(updated); saveJSON("pb_ks_tiers", updated); }
+  function saveAddons(updated: Addon[]) { setAddons(updated); saveJSON("pb_ks_addons", updated); }
+  function saveUnlockables(updated: Unlockable[]) { setUnlockables(updated); saveJSON("pb_ks_unlockables", updated); }
 
   function addTier() {
     saveTiers([...tiers, { id: Date.now().toString(), name: "New Tier", price: 0, contents: [], slots: 0, note: "" }]);

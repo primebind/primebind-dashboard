@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Plus, Trash2 } from "lucide-react";
+import { loadJSON, saveJSON } from "@/lib/safeStorage";
 
 type Status = "Idea" | "To Test" | "Testing" | "Winner" | "Cut";
 type Platform = "Meta" | "TikTok" | "Google" | "Other";
@@ -38,13 +39,12 @@ export default function AdIdeas() {
   const [filter, setFilter] = useState<Status | "All">("All");
 
   useEffect(() => {
-    const saved = localStorage.getItem("pb_ad_ideas");
-    if (saved) setIdeas(JSON.parse(saved));
+    setIdeas(loadJSON<AdIdea[]>("pb_ad_ideas", []));
   }, []);
 
   function save(updated: AdIdea[]) {
     setIdeas(updated);
-    localStorage.setItem("pb_ad_ideas", JSON.stringify(updated));
+    saveJSON("pb_ad_ideas", updated);
   }
 
   function add() {
