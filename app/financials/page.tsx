@@ -528,11 +528,6 @@ export default function Financials() {
           <p className="text-[#888] text-sm mt-1">Upload CSV from US Bank or Chase</p>
         </div>
         <div className="flex items-center gap-2">
-          <label className="flex items-center gap-2 bg-white text-black text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#e0e0e0] transition-colors cursor-pointer">
-            <Upload size={16} />
-            Import CSV
-            <input type="file" accept=".csv" className="hidden" onChange={handleCSV} />
-          </label>
           <label
             className="flex items-center gap-2 bg-transparent text-[#ccc] text-sm font-medium px-4 py-2 rounded-lg border border-[#333] hover:border-[#555] hover:text-white transition-colors cursor-pointer"
             title="Restore the whole dashboard from a previously exported backup file"
@@ -540,6 +535,11 @@ export default function Financials() {
             <Upload size={16} />
             Import JSON
             <input type="file" accept="application/json,.json" className="hidden" onChange={handleBackupFile} />
+          </label>
+          <label className="flex items-center gap-2 bg-white text-black text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#e0e0e0] transition-colors cursor-pointer">
+            <Upload size={16} />
+            Import CSV
+            <input type="file" accept=".csv" className="hidden" onChange={handleCSV} />
           </label>
           <button
             onClick={() => {
