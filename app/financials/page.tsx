@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, Fragment } from "react";
 import { Upload, Download, Trash2, ChevronRight, ChevronDown, Link, Unlink } from "lucide-react";
-import { loadJSON, saveJSON, getAllPbRaw } from "@/lib/safeStorage";
+import { loadJSON, saveJSON, getAllPbRaw, restoreAllRaw } from "@/lib/safeStorage";
 
 type Account = { number: string; name: string; type: string };
 
@@ -420,6 +420,42 @@ export default function Financials() {
     e.target.value = "";
   }
 
+  function handleBackupFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      let parsed: { exportedAt?: string; data?: Record<string, string> };
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        window.alert("That file isn't valid JSON — couldn't read it as a backup.");
+        return;
+      }
+      const data = parsed?.data;
+      if (!data || typeof data !== "object" || Array.isArray(data)) {
+        window.alert("That file doesn't look like a PrimeBind dashboard backup.");
+        return;
+      }
+      const keys = Object.keys(data);
+      const confirmed = window.confirm(
+        `This will overwrite ${keys.length} saved section${keys.length === 1 ? "" : "s"} in this dashboard with the contents of this ` +
+          `backup file (exported ${parsed.exportedAt ? new Date(parsed.exportedAt).toLocaleString() : "at an unknown time"}). ` +
+          `Anything currently saved will be replaced and this cannot be undone. Continue?`
+      );
+      if (!confirmed) return;
+      const failed = restoreAllRaw(data);
+      if (failed.length > 0) {
+        window.alert(`Restored, but ${failed.length} item(s) failed to write (storage may be full): ${failed.join(", ")}. Reloading now.`);
+      }
+      window.location.reload();
+    };
+    reader.onerror = () => window.alert("Couldn't read that file.");
+    reader.readAsText(file);
+  }
+
   // Resolve plain-text account names (as entered in PO items) to chart-of-accounts numbers
   const ACCOUNT_MAP: Record<string, string> = {
     "product design": "73500", "contractor": "72911", "contractors": "72911",
@@ -512,6 +548,14 @@ export default function Financials() {
             <Download size={16} />
             Export Backup
           </button>
+          <label
+            className="flex items-center gap-2 bg-transparent text-[#ccc] text-sm font-medium px-4 py-2 rounded-lg border border-[#333] hover:border-[#555] hover:text-white transition-colors cursor-pointer"
+            title="Restore the whole dashboard from a previously exported backup file"
+          >
+            <Upload size={16} />
+            Import Backup
+            <input type="file" accept="application/json,.json" className="hidden" onChange={handleBackupFile} />
+          </label>
           <button
             onClick={() => {
               const esc = (v: string) => `"${String(v ?? "").replace(/"/g, '""')}"`;
